@@ -33,7 +33,8 @@ export default function NovoPedidoPage() {
             }
 
             // Criar pedido
-            const { error: insertError } = await supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error: insertError } = await (supabase as any)
                 .from('requests')
                 .insert({
                     user_id: user.id,
@@ -111,8 +112,8 @@ export default function NovoPedidoPage() {
                                     type="button"
                                     onClick={() => setCategory(cat.id)}
                                     className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${category === cat.id
-                                            ? 'border-primary bg-primary/10'
-                                            : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300'
+                                        ? 'border-primary bg-primary/10'
+                                        : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300'
                                         }`}
                                 >
                                     <span className="text-2xl">{cat.icon}</span>
@@ -153,12 +154,12 @@ export default function NovoPedidoPage() {
                                         type="button"
                                         onClick={() => setUrgency(level)}
                                         className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 transition-all ${urgency === level
-                                                ? level === 'high'
-                                                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                                                    : level === 'medium'
-                                                        ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
-                                                        : 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                                                : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300'
+                                            ? level === 'high'
+                                                ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
+                                                : level === 'medium'
+                                                    ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
+                                                    : 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                                            : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300'
                                             }`}
                                     >
                                         <span>{info.icon}</span>

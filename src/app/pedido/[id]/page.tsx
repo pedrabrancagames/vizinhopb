@@ -64,7 +64,7 @@ export default function PedidoPage() {
         user:users!requests_user_id_fkey(id, name, avatar_url, neighborhood, rating_as_requester),
         offers(id, helper:users!offers_helper_id_fkey(id, name, avatar_url))
       `)
-            .eq('id', params.id)
+            .eq('id', params.id as string)
             .single()
 
         if (error || !data) {
@@ -88,7 +88,8 @@ export default function PedidoPage() {
             return
         }
 
-        const { error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
             .from('offers')
             .insert({
                 request_id: params.id,
@@ -139,10 +140,10 @@ export default function PedidoPage() {
                 {/* Badge de urgência */}
                 <div className="flex items-center justify-between mb-4">
                     <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-bold ${request.urgency === 'high'
-                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                            : request.urgency === 'medium'
-                                ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        : request.urgency === 'medium'
+                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                            : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                         }`}>
                         {urgency.icon} {urgency.label.toUpperCase()}
                     </span>
