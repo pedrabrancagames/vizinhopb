@@ -175,6 +175,22 @@ export default function AdminPage() {
                     <h2 className="text-lg font-bold mb-4">⚡ Atalhos</h2>
                     <div className="grid grid-cols-2 gap-3">
                         <Link
+                            href="/admin/usuarios"
+                            className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-zinc-100 dark:border-zinc-800 hover:shadow-md hover:border-primary/30 transition-all"
+                        >
+                            <span className="text-2xl mb-2 block">👥</span>
+                            <h3 className="font-semibold">Gerenciar Usuários</h3>
+                            <p className="text-sm text-zinc-500">Editar, bloquear, excluir</p>
+                        </Link>
+                        <Link
+                            href="/admin/pedidos"
+                            className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-zinc-100 dark:border-zinc-800 hover:shadow-md hover:border-primary/30 transition-all"
+                        >
+                            <span className="text-2xl mb-2 block">📦</span>
+                            <h3 className="font-semibold">Gerenciar Pedidos</h3>
+                            <p className="text-sm text-zinc-500">Editar e excluir</p>
+                        </Link>
+                        <Link
                             href="/admin/moderadores"
                             className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-zinc-100 dark:border-zinc-800 hover:shadow-md hover:border-primary/30 transition-all"
                         >
