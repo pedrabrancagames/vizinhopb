@@ -4,8 +4,21 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { URGENCY_LEVELS, REQUEST_CATEGORIES, REQUEST_STATUS } from '@/lib/constants'
+import { URGENCY_LEVELS, REQUEST_CATEGORIES, OFFER_STATUS } from '@/lib/constants'
 import { formatDistanceToNow, formatDate } from '@/lib/utils'
+
+interface Offer {
+    id: string
+    status: 'pending' | 'accepted' | 'rejected' | 'borrowed' | 'returned' | 'cancelled'
+    message: string | null
+    created_at: string
+    helper: {
+        id: string
+        name: string | null
+        avatar_url: string | null
+        rating_as_helper: number
+    }
+}
 
 interface Request {
     id: string
@@ -23,14 +36,7 @@ interface Request {
         neighborhood: string | null
         rating_as_requester: number
     }
-    offers: {
-        id: string
-        helper: {
-            id: string
-            name: string | null
-            avatar_url: string | null
-        }
-    }[]
+    offers: Offer[]
 }
 
 export default function PedidoPage() {
@@ -42,10 +48,12 @@ export default function PedidoPage() {
     const [submitting, setSubmitting] = useState(false)
     const [currentUser, setCurrentUser] = useState<string | null>(null)
     const [showOfferForm, setShowOfferForm] = useState(false)
+    const [processingOffer, setProcessingOffer] = useState<string | null>(null)
 
     useEffect(() => {
         loadRequest()
         checkUser()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [params.id])
 
     const checkUser = async () => {
@@ -57,12 +65,13 @@ export default function PedidoPage() {
     const loadRequest = async () => {
         const supabase = createClient()
 
-        const { data, error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
             .from('requests')
             .select(`
         *,
         user:users!requests_user_id_fkey(id, name, avatar_url, neighborhood, rating_as_requester),
-        offers(id, helper:users!offers_helper_id_fkey(id, name, avatar_url))
+        offers(id, status, message, created_at, helper:users!offers_helper_id_fkey(id, name, avatar_url, rating_as_helper))
       `)
             .eq('id', params.id as string)
             .single()
@@ -106,6 +115,85 @@ export default function PedidoPage() {
         setSubmitting(false)
     }
 
+    const handleAcceptOffer = async (offerId: string) => {
+        setProcessingOffer(offerId)
+        const supabase = createClient()
+
+        // Aceitar a oferta selecionada
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+            .from('offers')
+            .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+            .eq('id', offerId)
+
+        // Rejeitar as outras ofertas
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+            .from('offers')
+            .update({ status: 'rejected' })
+            .eq('request_id', params.id)
+            .neq('id', offerId)
+            .eq('status', 'pending')
+
+        // Atualizar status do pedido
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+            .from('requests')
+            .update({ status: 'in_progress' })
+            .eq('id', params.id)
+
+        loadRequest()
+        setProcessingOffer(null)
+    }
+
+    const handleRejectOffer = async (offerId: string) => {
+        setProcessingOffer(offerId)
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+            .from('offers')
+            .update({ status: 'rejected' })
+            .eq('id', offerId)
+
+        loadRequest()
+        setProcessingOffer(null)
+    }
+
+    const handleMarkBorrowed = async (offerId: string) => {
+        setProcessingOffer(offerId)
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+            .from('offers')
+            .update({ status: 'borrowed', borrowed_at: new Date().toISOString() })
+            .eq('id', offerId)
+
+        loadRequest()
+        setProcessingOffer(null)
+    }
+
+    const handleMarkReturned = async (offerId: string) => {
+        setProcessingOffer(offerId)
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+            .from('offers')
+            .update({ status: 'returned', returned_at: new Date().toISOString() })
+            .eq('id', offerId)
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+            .from('requests')
+            .update({ status: 'completed', closed_at: new Date().toISOString() })
+            .eq('id', params.id)
+
+        loadRequest()
+        setProcessingOffer(null)
+    }
+
     if (loading) {
         return (
             <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
@@ -120,6 +208,7 @@ export default function PedidoPage() {
     const category = REQUEST_CATEGORIES.find(c => c.id === request.category)
     const isOwner = currentUser === request.user.id
     const hasOffered = request.offers.some(o => o.helper.id === currentUser)
+    const acceptedOffer = request.offers.find(o => o.status === 'accepted' || o.status === 'borrowed')
 
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -140,10 +229,10 @@ export default function PedidoPage() {
                 {/* Badge de urgência */}
                 <div className="flex items-center justify-between mb-4">
                     <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-bold ${request.urgency === 'high'
-                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                        : request.urgency === 'medium'
-                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                            : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            : request.urgency === 'medium'
+                                ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                         }`}>
                         {urgency.icon} {urgency.label.toUpperCase()}
                     </span>
@@ -169,7 +258,7 @@ export default function PedidoPage() {
                     <p className="flex items-center gap-2">
                         📍 {request.user.neighborhood || 'Localização não informada'}
                     </p>
-                    <p className="flex items-center gap-2">
+                    <p className="flex items-center gap-2" suppressHydrationWarning>
                         🕐 Publicado {formatDistanceToNow(request.created_at)}
                     </p>
                     {request.needed_until && (
@@ -198,13 +287,107 @@ export default function PedidoPage() {
                     </div>
                 </div>
 
-                {/* Ofertas */}
-                <div className="mb-6">
-                    <h2 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                        💬 {request.offers.length} {request.offers.length === 1 ? 'pessoa ofereceu' : 'pessoas ofereceram'} ajuda
-                    </h2>
+                {/* Ofertas - Versão para o dono */}
+                {isOwner && request.offers.length > 0 && (
+                    <div className="mb-6">
+                        <h2 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                            💬 {request.offers.length} {request.offers.length === 1 ? 'pessoa ofereceu' : 'pessoas ofereceram'} ajuda
+                        </h2>
 
-                    {request.offers.length > 0 && (
+                        <div className="space-y-3">
+                            {request.offers.map((offer) => {
+                                const statusInfo = OFFER_STATUS[offer.status]
+                                return (
+                                    <div
+                                        key={offer.id}
+                                        className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800"
+                                    >
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-secondary to-green-400 flex items-center justify-center text-white font-bold overflow-hidden">
+                                                {offer.helper.avatar_url ? (
+                                                    <img src={offer.helper.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    offer.helper.name?.charAt(0).toUpperCase() || '?'
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-medium">{offer.helper.name || 'Usuário'}</h4>
+                                                <p className="text-xs text-zinc-500 flex items-center gap-2">
+                                                    ⭐ {offer.helper.rating_as_helper.toFixed(1)}
+                                                    <span suppressHydrationWarning>• {formatDistanceToNow(offer.created_at)}</span>
+                                                </p>
+                                            </div>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color === 'green'
+                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                    : statusInfo.color === 'blue'
+                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                        : statusInfo.color === 'red'
+                                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                            : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800'
+                                                }`}>
+                                                {statusInfo.label}
+                                            </span>
+                                        </div>
+
+                                        {offer.message && (
+                                            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3 italic">
+                                                "{offer.message}"
+                                            </p>
+                                        )}
+
+                                        {/* Ações para o dono */}
+                                        {offer.status === 'pending' && (
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleAcceptOffer(offer.id)}
+                                                    disabled={processingOffer === offer.id}
+                                                    className="flex-1 py-2 px-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors disabled:opacity-50"
+                                                >
+                                                    ✅ Aceitar
+                                                </button>
+                                                <button
+                                                    onClick={() => handleRejectOffer(offer.id)}
+                                                    disabled={processingOffer === offer.id}
+                                                    className="flex-1 py-2 px-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
+                                                >
+                                                    ❌ Recusar
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {offer.status === 'accepted' && (
+                                            <button
+                                                onClick={() => handleMarkBorrowed(offer.id)}
+                                                disabled={processingOffer === offer.id}
+                                                className="w-full py-2 px-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors disabled:opacity-50"
+                                            >
+                                                📦 Marcar como Emprestado
+                                            </button>
+                                        )}
+
+                                        {offer.status === 'borrowed' && (
+                                            <button
+                                                onClick={() => handleMarkReturned(offer.id)}
+                                                disabled={processingOffer === offer.id}
+                                                className="w-full py-2 px-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors disabled:opacity-50"
+                                            >
+                                                ✅ Marcar como Devolvido
+                                            </button>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Ofertas - Versão para visitantes */}
+                {!isOwner && request.offers.length > 0 && (
+                    <div className="mb-6">
+                        <h2 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                            💬 {request.offers.length} {request.offers.length === 1 ? 'pessoa ofereceu' : 'pessoas ofereceram'} ajuda
+                        </h2>
+
                         <div className="flex -space-x-2 mb-4">
                             {request.offers.slice(0, 5).map((offer) => (
                                 <div
@@ -225,12 +408,12 @@ export default function PedidoPage() {
                                 </div>
                             )}
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </main>
 
-            {/* Botão fixo */}
-            {!isOwner && !hasOffered && (
+            {/* Botão fixo para visitantes */}
+            {!isOwner && !hasOffered && request.status === 'open' && (
                 <div className="fixed bottom-0 left-0 right-0 p-4 glass border-t border-zinc-200 dark:border-zinc-800">
                     {showOfferForm ? (
                         <form onSubmit={handleOffer} className="space-y-3">
@@ -273,6 +456,14 @@ export default function PedidoPage() {
                 <div className="fixed bottom-0 left-0 right-0 p-4 glass border-t border-zinc-200 dark:border-zinc-800">
                     <div className="w-full py-4 px-4 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold rounded-xl text-center">
                         ✅ Você já ofereceu ajuda neste pedido
+                    </div>
+                </div>
+            )}
+
+            {request.status === 'completed' && (
+                <div className="fixed bottom-0 left-0 right-0 p-4 glass border-t border-zinc-200 dark:border-zinc-800">
+                    <div className="w-full py-4 px-4 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold rounded-xl text-center">
+                        ✅ Pedido concluído
                     </div>
                 </div>
             )}
