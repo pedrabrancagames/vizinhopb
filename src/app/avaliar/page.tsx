@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-export default function AvaliarPage() {
+function AvaliarContent() {
     const searchParams = useSearchParams()
     const router = useRouter()
     const [rating, setRating] = useState(5)
@@ -24,6 +24,9 @@ export default function AvaliarPage() {
 
     useEffect(() => {
         if (offerId) {
+            loadOfferData()
+        } else {
+            // Fallback quando não há offerId
             loadOfferData()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,19 +54,6 @@ export default function AvaliarPage() {
             router.push('/login')
             return
         }
-
-        // Em produção, inserir a avaliação no banco
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        // await (supabase as any)
-        //   .from('reviews')
-        //   .insert({
-        //     reviewer_id: user.id,
-        //     reviewed_id: userToRate?.id,
-        //     offer_id: offerId,
-        //     rating,
-        //     comment: comment || null,
-        //     role: asRole,
-        //   })
 
         // Simular delay
         await new Promise(resolve => setTimeout(resolve, 500))
@@ -202,5 +192,17 @@ export default function AvaliarPage() {
                 </form>
             </main>
         </div>
+    )
+}
+
+export default function AvaliarPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
+                <div className="animate-pulse text-2xl">⏳</div>
+            </div>
+        }>
+            <AvaliarContent />
+        </Suspense>
     )
 }
