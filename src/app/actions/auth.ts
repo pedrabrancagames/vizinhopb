@@ -37,7 +37,8 @@ export async function updateProfile(formData: FormData) {
     const bio = formData.get('bio') as string
     const neighborhood = formData.get('neighborhood') as string
 
-    const { error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
         .from('users')
         .update({
             name,
