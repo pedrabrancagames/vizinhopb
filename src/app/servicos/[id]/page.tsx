@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { generateWhatsAppLink, formatPhone, formatDistanceToNow } from '@/lib/utils'
+import { getWhatsAppLink, formatPhoneNumber, formatDistanceToNow } from '@/lib/utils'
 import { BUSINESS_CATEGORIES } from '@/lib/constants'
 
 interface Business {
@@ -171,7 +171,7 @@ export default function EmpresaDetalhePage() {
                     )}
                     {business.whatsapp && (
                         <a
-                            href={generateWhatsAppLink(business.whatsapp, `Olá! Vi seu serviço no Vizinho PB`)}
+                            href={getWhatsAppLink(business.whatsapp, `Olá! Vi seu serviço no Vizinho PB`)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex-1 py-3 px-4 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-xl font-medium text-center hover:bg-green-200 transition-colors"
@@ -207,7 +207,7 @@ export default function EmpresaDetalhePage() {
                     {(business.phone || business.whatsapp) && (
                         <div className="p-4">
                             <p className="text-sm text-zinc-500">📱 Contato</p>
-                            <p className="font-medium">{formatPhone(business.phone || business.whatsapp || '')}</p>
+                            <p className="font-medium">{formatPhoneNumber(business.phone || business.whatsapp || '')}</p>
                         </div>
                     )}
                 </div>

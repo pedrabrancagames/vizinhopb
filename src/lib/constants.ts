@@ -10,6 +10,22 @@ export const REQUEST_CATEGORIES = [
     { id: 'outros', name: 'Outros', icon: '🎭' },
 ] as const
 
+// Categorias de empresas/serviços
+export const BUSINESS_CATEGORIES = [
+    { id: 'eletricista', name: 'Eletricista', icon: '🔌' },
+    { id: 'encanador', name: 'Encanador', icon: '🚿' },
+    { id: 'pintor', name: 'Pintor', icon: '🎨' },
+    { id: 'limpeza', name: 'Limpeza', icon: '🧹' },
+    { id: 'jardineiro', name: 'Jardineiro', icon: '🌱' },
+    { id: 'marceneiro', name: 'Marceneiro', icon: '🪵' },
+    { id: 'mecanico', name: 'Mecânico', icon: '🔧' },
+    { id: 'pedreiro', name: 'Pedreiro', icon: '🧱' },
+    { id: 'pet', name: 'Pet/Veterinário', icon: '🐕' },
+    { id: 'beleza', name: 'Beleza', icon: '💅' },
+    { id: 'tecnologia', name: 'Tecnologia', icon: '💻' },
+    { id: 'outros', name: 'Outros', icon: '🏢' },
+] as const
+
 // Níveis de urgência
 export const URGENCY_LEVELS = {
     low: { label: 'Baixa', color: 'green', icon: '🟢' },

@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
 import TabNavigation from '@/components/layout/TabNavigation'
 import { BUSINESS_CATEGORIES } from '@/lib/constants'
-import { generateWhatsAppLink, formatPhone } from '@/lib/utils'
+import { getWhatsAppLink, formatPhoneNumber } from '@/lib/utils'
 
 interface Business {
     id: string
@@ -68,8 +68,8 @@ export default function ServicosPage() {
                     <button
                         onClick={() => setSelectedCategory(null)}
                         className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${selectedCategory === null
-                                ? 'bg-primary text-white'
-                                : 'bg-white dark:bg-zinc-800 hover:bg-zinc-100'
+                            ? 'bg-primary text-white'
+                            : 'bg-white dark:bg-zinc-800 hover:bg-zinc-100'
                             }`}
                     >
                         Todos
@@ -79,8 +79,8 @@ export default function ServicosPage() {
                             key={cat.id}
                             onClick={() => setSelectedCategory(cat.id)}
                             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1 ${selectedCategory === cat.id
-                                    ? 'bg-primary text-white'
-                                    : 'bg-white dark:bg-zinc-800 hover:bg-zinc-100'
+                                ? 'bg-primary text-white'
+                                : 'bg-white dark:bg-zinc-800 hover:bg-zinc-100'
                                 }`}
                         >
                             <span>{cat.icon}</span>
@@ -155,7 +155,7 @@ export default function ServicosPage() {
                                         )}
                                         {business.whatsapp && (
                                             <a
-                                                href={generateWhatsAppLink(business.whatsapp, `Olá! Vi seu serviço no Vizinho PB`)}
+                                                href={getWhatsAppLink(business.whatsapp, `Olá! Vi seu serviço no Vizinho PB`)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="py-2 px-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors"
