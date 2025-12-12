@@ -35,60 +35,71 @@ export default function AdminUsuariosPage() {
         'Expedicionários', 'Miramar', 'Brisamar', 'Outro'
     ]
 
-    // Dados fake
-    const fakeUsers: User[] = [
-        {
-            id: '1', name: 'João Silva', email: 'joao@email.com', avatar_url: null,
-            role: 'user', neighborhood: 'Manaíra', blocked: false,
-            created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-            total_requests: 5, total_helps: 12, rating_as_requester: 4.8, rating_as_helper: 4.9
-        },
-        {
-            id: '2', name: 'Maria Santos', email: 'maria@email.com', avatar_url: null,
-            role: 'user', neighborhood: 'Tambaú', blocked: false,
-            created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-            total_requests: 8, total_helps: 25, rating_as_requester: 4.6, rating_as_helper: 5.0
-        },
-        {
-            id: '3', name: 'Carlos Lima', email: 'carlos@email.com', avatar_url: null,
-            role: 'user', neighborhood: 'Centro', blocked: true,
-            created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            total_requests: 2, total_helps: 1, rating_as_requester: 2.5, rating_as_helper: 3.0
-        },
-        {
-            id: '4', name: 'Ana Paula', email: 'ana@email.com', avatar_url: null,
-            role: 'moderator', neighborhood: 'Bessa', blocked: false,
-            created_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-            total_requests: 15, total_helps: 30, rating_as_requester: 4.9, rating_as_helper: 5.0
-        },
-    ]
-
     useEffect(() => {
-        setTimeout(() => {
-            setUsers(fakeUsers)
-            setLoading(false)
-        }, 300)
+        loadUsers()
     }, [])
+
+    const loadUsers = async () => {
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+            .from('users')
+            .select('*')
+            .order('created_at', { ascending: false })
+
+        if (!error && data) {
+            setUsers(data)
+        }
+        setLoading(false)
+    }
 
     const handleBlock = async (userId: string) => {
         setUpdating(userId)
-        await new Promise(r => setTimeout(r, 500))
-        setUsers(users.map(u => u.id === userId ? { ...u, blocked: true } : u))
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+            .from('users')
+            .update({ blocked: true })
+            .eq('id', userId)
+
+        if (!error) {
+            setUsers(users.map(u => u.id === userId ? { ...u, blocked: true } : u))
+        }
         setUpdating(null)
     }
 
     const handleUnblock = async (userId: string) => {
         setUpdating(userId)
-        await new Promise(r => setTimeout(r, 500))
-        setUsers(users.map(u => u.id === userId ? { ...u, blocked: false } : u))
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+            .from('users')
+            .update({ blocked: false })
+            .eq('id', userId)
+
+        if (!error) {
+            setUsers(users.map(u => u.id === userId ? { ...u, blocked: false } : u))
+        }
         setUpdating(null)
     }
 
     const handleDelete = async (userId: string) => {
         if (!confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) return
         setUpdating(userId)
-        await new Promise(r => setTimeout(r, 500))
-        setUsers(users.filter(u => u.id !== userId))
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+            .from('users')
+            .delete()
+            .eq('id', userId)
+
+        if (!error) {
+            setUsers(users.filter(u => u.id !== userId))
+        }
         setUpdating(null)
     }
 
@@ -100,11 +111,23 @@ export default function AdminUsuariosPage() {
     const handleSaveEdit = async () => {
         if (!editingUser) return
         setUpdating(editingUser.id)
-        await new Promise(r => setTimeout(r, 500))
-        setUsers(users.map(u => u.id === editingUser.id
-            ? { ...u, name: editForm.name, neighborhood: editForm.neighborhood }
-            : u
-        ))
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+            .from('users')
+            .update({
+                name: editForm.name || null,
+                neighborhood: editForm.neighborhood || null
+            })
+            .eq('id', editingUser.id)
+
+        if (!error) {
+            setUsers(users.map(u => u.id === editingUser.id
+                ? { ...u, name: editForm.name, neighborhood: editForm.neighborhood }
+                : u
+            ))
+        }
         setEditingUser(null)
         setUpdating(null)
     }
@@ -177,8 +200,8 @@ export default function AdminUsuariosPage() {
                             key={f.key}
                             onClick={() => setFilter(f.key as 'all' | 'blocked' | 'active')}
                             className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filter === f.key
-                                    ? 'bg-primary text-white'
-                                    : 'bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                                ? 'bg-primary text-white'
+                                : 'bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700'
                                 }`}
                         >
                             {f.label}
@@ -196,25 +219,29 @@ export default function AdminUsuariosPage() {
                             </div>
                         ))}
                     </div>
-                ) : (
+                ) : filteredUsers.length > 0 ? (
                     <div className="space-y-3">
                         {filteredUsers.map((user) => (
                             <div
                                 key={user.id}
                                 className={`bg-white dark:bg-zinc-900 rounded-xl p-4 border ${user.blocked
-                                        ? 'border-red-200 dark:border-red-900/50'
-                                        : 'border-zinc-100 dark:border-zinc-800'
+                                    ? 'border-red-200 dark:border-red-900/50'
+                                    : 'border-zinc-100 dark:border-zinc-800'
                                     }`}
                             >
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg overflow-hidden ${user.blocked
-                                            ? 'bg-red-400'
-                                            : 'bg-gradient-to-br from-primary to-primary-light'
+                                        ? 'bg-red-400'
+                                        : 'bg-gradient-to-br from-primary to-primary-light'
                                         }`}>
-                                        {user.name?.charAt(0).toUpperCase() || '?'}
+                                        {user.avatar_url ? (
+                                            <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            user.name?.charAt(0).toUpperCase() || '?'
+                                        )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <h3 className="font-semibold truncate">{user.name || 'Usuário'}</h3>
                                             {user.blocked && (
                                                 <span className="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-full text-xs font-medium">
@@ -233,19 +260,19 @@ export default function AdminUsuariosPage() {
 
                                 <div className="grid grid-cols-4 gap-2 text-center text-sm mb-3">
                                     <div>
-                                        <p className="font-semibold">{user.total_requests}</p>
+                                        <p className="font-semibold">{user.total_requests || 0}</p>
                                         <p className="text-xs text-zinc-500">Pedidos</p>
                                     </div>
                                     <div>
-                                        <p className="font-semibold">{user.total_helps}</p>
+                                        <p className="font-semibold">{user.total_helps || 0}</p>
                                         <p className="text-xs text-zinc-500">Ajudas</p>
                                     </div>
                                     <div>
-                                        <p className="font-semibold">⭐ {user.rating_as_requester.toFixed(1)}</p>
+                                        <p className="font-semibold">⭐ {(user.rating_as_requester || 5).toFixed(1)}</p>
                                         <p className="text-xs text-zinc-500">Solicitante</p>
                                     </div>
                                     <div>
-                                        <p className="font-semibold">⭐ {user.rating_as_helper.toFixed(1)}</p>
+                                        <p className="font-semibold">⭐ {(user.rating_as_helper || 5).toFixed(1)}</p>
                                         <p className="text-xs text-zinc-500">Ajudante</p>
                                     </div>
                                 </div>
@@ -289,13 +316,13 @@ export default function AdminUsuariosPage() {
                                 </div>
                             </div>
                         ))}
-
-                        {filteredUsers.length === 0 && (
-                            <div className="text-center py-12">
-                                <span className="text-4xl mb-4 block">🔍</span>
-                                <p className="text-zinc-500">Nenhum usuário encontrado</p>
-                            </div>
-                        )}
+                    </div>
+                ) : (
+                    <div className="text-center py-12">
+                        <span className="text-4xl mb-4 block">👥</span>
+                        <p className="text-zinc-500">
+                            {searchQuery ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado ainda'}
+                        </p>
                     </div>
                 )}
             </main>

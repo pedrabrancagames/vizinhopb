@@ -14,12 +14,10 @@ interface Request {
     urgency: 'low' | 'medium' | 'high'
     status: keyof typeof REQUEST_STATUS
     created_at: string
-    user: {
-        id: string
-        name: string | null
-        email: string
-    }
-    offers_count: number
+    user_id: string
+    user_name?: string
+    user_email?: string
+    offers_count?: number
 }
 
 export default function AdminPedidosPage() {
@@ -31,50 +29,78 @@ export default function AdminPedidosPage() {
     const [editingRequest, setEditingRequest] = useState<Request | null>(null)
     const [editForm, setEditForm] = useState({ title: '', description: '', status: '' })
 
-    // Dados fake
-    const fakeRequests: Request[] = [
-        {
-            id: '1', title: 'Preciso de uma furadeira', description: 'Para fazer alguns furos na parede',
-            category: 'ferramentas', urgency: 'medium', status: 'open',
-            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            user: { id: '1', name: 'João Silva', email: 'joao@email.com' },
-            offers_count: 3
-        },
-        {
-            id: '2', title: 'Escada de 6 degraus', description: 'Para trocar lâmpada do teto',
-            category: 'ferramentas', urgency: 'high', status: 'in_progress',
-            created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-            user: { id: '2', name: 'Maria Santos', email: 'maria@email.com' },
-            offers_count: 1
-        },
-        {
-            id: '3', title: 'Forma de bolo grande', description: null,
-            category: 'cozinha', urgency: 'low', status: 'completed',
-            created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-            user: { id: '3', name: 'Carlos Lima', email: 'carlos@email.com' },
-            offers_count: 2
-        },
-        {
-            id: '4', title: 'Carrinho de mão', description: 'Para obra pequena',
-            category: 'jardim', urgency: 'medium', status: 'cancelled',
-            created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-            user: { id: '4', name: 'Ana Paula', email: 'ana@email.com' },
-            offers_count: 0
-        },
-    ]
-
     useEffect(() => {
-        setTimeout(() => {
-            setRequests(fakeRequests)
-            setLoading(false)
-        }, 300)
+        loadRequests()
     }, [])
+
+    const loadRequests = async () => {
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+            .from('requests')
+            .select('*')
+            .order('created_at', { ascending: false })
+
+        if (!error && data) {
+            // Buscar informações dos usuários
+            const userIds = [...new Set(data.map((r: Request) => r.user_id))]
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: usersData } = await (supabase as any)
+                .from('users')
+                .select('id, name, email')
+                .in('id', userIds.length > 0 ? userIds : ['none'])
+
+            const usersMap = new Map(usersData?.map((u: { id: string; name: string; email: string }) => [u.id, u]) || [])
+
+            // Contar ofertas por pedido
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: offersData } = await (supabase as any)
+                .from('offers')
+                .select('request_id')
+
+            const offersCounts = new Map<string, number>()
+            offersData?.forEach((o: { request_id: string }) => {
+                offersCounts.set(o.request_id, (offersCounts.get(o.request_id) || 0) + 1)
+            })
+
+            const requestsWithUsers = data.map((r: Request) => {
+                const user = usersMap.get(r.user_id) as { name: string; email: string } | undefined
+                return {
+                    ...r,
+                    user_name: user?.name || 'Usuário',
+                    user_email: user?.email || '',
+                    offers_count: offersCounts.get(r.id) || 0
+                }
+            })
+
+            setRequests(requestsWithUsers)
+        }
+        setLoading(false)
+    }
 
     const handleDelete = async (requestId: string) => {
         if (!confirm('Tem certeza que deseja excluir este pedido? Esta ação não pode ser desfeita.')) return
         setUpdating(requestId)
-        await new Promise(r => setTimeout(r, 500))
-        setRequests(requests.filter(r => r.id !== requestId))
+        const supabase = createClient()
+
+        // Deletar ofertas primeiro
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+            .from('offers')
+            .delete()
+            .eq('request_id', requestId)
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+            .from('requests')
+            .delete()
+            .eq('id', requestId)
+
+        if (!error) {
+            setRequests(requests.filter(r => r.id !== requestId))
+        }
         setUpdating(null)
     }
 
@@ -90,11 +116,24 @@ export default function AdminPedidosPage() {
     const handleSaveEdit = async () => {
         if (!editingRequest) return
         setUpdating(editingRequest.id)
-        await new Promise(r => setTimeout(r, 500))
-        setRequests(requests.map(r => r.id === editingRequest.id
-            ? { ...r, title: editForm.title, description: editForm.description, status: editForm.status as keyof typeof REQUEST_STATUS }
-            : r
-        ))
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+            .from('requests')
+            .update({
+                title: editForm.title,
+                description: editForm.description || null,
+                status: editForm.status
+            })
+            .eq('id', editingRequest.id)
+
+        if (!error) {
+            setRequests(requests.map(r => r.id === editingRequest.id
+                ? { ...r, title: editForm.title, description: editForm.description, status: editForm.status as keyof typeof REQUEST_STATUS }
+                : r
+            ))
+        }
         setEditingRequest(null)
         setUpdating(null)
     }
@@ -102,8 +141,8 @@ export default function AdminPedidosPage() {
     const filteredRequests = requests.filter(request => {
         const matchesSearch = searchQuery === '' ||
             request.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            request.user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            request.user.email.toLowerCase().includes(searchQuery.toLowerCase())
+            request.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            request.user_email?.toLowerCase().includes(searchQuery.toLowerCase())
 
         const matchesFilter = filterStatus === 'all' || request.status === filterStatus
 
@@ -195,11 +234,11 @@ export default function AdminPedidosPage() {
                             </div>
                         ))}
                     </div>
-                ) : (
+                ) : filteredRequests.length > 0 ? (
                     <div className="space-y-3">
                         {filteredRequests.map((request) => {
                             const statusInfo = getStatusInfo(request.status)
-                            const urgency = URGENCY_LEVELS[request.urgency]
+                            const urgency = URGENCY_LEVELS[request.urgency] || { label: request.urgency, icon: '⚪' }
                             const category = REQUEST_CATEGORIES.find(c => c.id === request.category)
 
                             return (
@@ -209,7 +248,7 @@ export default function AdminPedidosPage() {
                                 >
                                     <div className="flex items-start justify-between mb-2">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xl">{category?.icon}</span>
+                                            <span className="text-xl">{category?.icon || '📦'}</span>
                                             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${request.urgency === 'high'
                                                     ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                                                     : request.urgency === 'medium'
@@ -237,8 +276,8 @@ export default function AdminPedidosPage() {
                                     )}
 
                                     <div className="flex items-center justify-between text-sm text-zinc-500 mb-3">
-                                        <span>👤 {request.user.name || request.user.email}</span>
-                                        <span>💬 {request.offers_count} ofertas</span>
+                                        <span>👤 {request.user_name}</span>
+                                        <span>💬 {request.offers_count || 0} ofertas</span>
                                     </div>
 
                                     <div className="text-xs text-zinc-400 mb-3" suppressHydrationWarning>
@@ -264,19 +303,19 @@ export default function AdminPedidosPage() {
                                             disabled={updating === request.id}
                                             className="py-2 px-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
                                         >
-                                            🗑️
+                                            {updating === request.id ? '...' : '🗑️'}
                                         </button>
                                     </div>
                                 </div>
                             )
                         })}
-
-                        {filteredRequests.length === 0 && (
-                            <div className="text-center py-12">
-                                <span className="text-4xl mb-4 block">🔍</span>
-                                <p className="text-zinc-500">Nenhum pedido encontrado</p>
-                            </div>
-                        )}
+                    </div>
+                ) : (
+                    <div className="text-center py-12">
+                        <span className="text-4xl mb-4 block">📦</span>
+                        <p className="text-zinc-500">
+                            {searchQuery ? 'Nenhum pedido encontrado' : 'Nenhum pedido cadastrado ainda'}
+                        </p>
                     </div>
                 )}
             </main>
