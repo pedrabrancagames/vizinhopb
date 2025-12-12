@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { formatDistanceToNow } from '@/lib/utils'
@@ -19,90 +18,44 @@ interface User {
 }
 
 export default function ModeradoresPage() {
-    const router = useRouter()
     const [users, setUsers] = useState<User[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [filter, setFilter] = useState<'all' | 'moderator' | 'admin'>('all')
     const [updating, setUpdating] = useState<string | null>(null)
 
-    // Dados fake para demonstração
-    const fakeUsers: User[] = [
-        {
-            id: '1',
-            name: 'Admin Sistema',
-            email: 'admin@vizinhopb.com',
-            avatar_url: null,
-            role: 'admin',
-            neighborhood: 'Manaíra',
-            created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            total_requests: 5,
-            total_helps: 12
-        },
-        {
-            id: '2',
-            name: 'Maria Moderadora',
-            email: 'maria@email.com',
-            avatar_url: null,
-            role: 'moderator',
-            neighborhood: 'Tambaú',
-            created_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-            total_requests: 8,
-            total_helps: 25
-        },
-        {
-            id: '3',
-            name: 'João Silva',
-            email: 'joao@email.com',
-            avatar_url: null,
-            role: 'user',
-            neighborhood: 'Cabo Branco',
-            created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-            total_requests: 3,
-            total_helps: 7
-        },
-        {
-            id: '4',
-            name: 'Ana Paula',
-            email: 'ana@email.com',
-            avatar_url: null,
-            role: 'user',
-            neighborhood: 'Bessa',
-            created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-            total_requests: 10,
-            total_helps: 15
-        },
-        {
-            id: '5',
-            name: 'Carlos Lima',
-            email: 'carlos@email.com',
-            avatar_url: null,
-            role: 'user',
-            neighborhood: 'Centro',
-            created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-            total_requests: 2,
-            total_helps: 4
-        },
-    ]
-
     useEffect(() => {
-        setTimeout(() => {
-            setUsers(fakeUsers)
-            setLoading(false)
-        }, 300)
+        loadUsers()
     }, [])
+
+    const loadUsers = async () => {
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+            .from('users')
+            .select('*')
+            .order('created_at', { ascending: false })
+
+        if (!error && data) {
+            setUsers(data)
+        }
+        setLoading(false)
+    }
 
     const handlePromote = async (userId: string, newRole: 'user' | 'moderator' | 'admin') => {
         setUpdating(userId)
+        const supabase = createClient()
 
-        // Em produção, atualizar no banco
-        // const supabase = createClient()
-        // await supabase.from('users').update({ role: newRole }).eq('id', userId)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+            .from('users')
+            .update({ role: newRole })
+            .eq('id', userId)
 
-        // Simular delay
-        await new Promise(resolve => setTimeout(resolve, 500))
-
-        setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
+        if (!error) {
+            setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
+        }
         setUpdating(null)
     }
 
@@ -182,8 +135,8 @@ export default function ModeradoresPage() {
                             key={f.key}
                             onClick={() => setFilter(f.key as 'all' | 'moderator' | 'admin')}
                             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${filter === f.key
-                                    ? 'bg-primary text-white'
-                                    : 'bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                                ? 'bg-primary text-white'
+                                : 'bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700'
                                 }`}
                         >
                             {f.label}
@@ -201,7 +154,7 @@ export default function ModeradoresPage() {
                             </div>
                         ))}
                     </div>
-                ) : (
+                ) : filteredUsers.length > 0 ? (
                     <div className="space-y-3">
                         {filteredUsers.map((user) => {
                             const roleBadge = getRoleBadge(user.role)
@@ -231,7 +184,7 @@ export default function ModeradoresPage() {
 
                                     <div className="flex items-center justify-between text-sm text-zinc-500 mb-3">
                                         <span>📍 {user.neighborhood || 'N/I'}</span>
-                                        <span>📦 {user.total_requests} pedidos • 🤝 {user.total_helps} ajudas</span>
+                                        <span>📦 {user.total_requests || 0} pedidos • 🤝 {user.total_helps || 0} ajudas</span>
                                     </div>
 
                                     {/* Ações */}
@@ -272,13 +225,13 @@ export default function ModeradoresPage() {
                                 </div>
                             )
                         })}
-
-                        {filteredUsers.length === 0 && (
-                            <div className="text-center py-12">
-                                <span className="text-4xl mb-4 block">🔍</span>
-                                <p className="text-zinc-500">Nenhum usuário encontrado</p>
-                            </div>
-                        )}
+                    </div>
+                ) : (
+                    <div className="text-center py-12">
+                        <span className="text-4xl mb-4 block">👥</span>
+                        <p className="text-zinc-500">
+                            {searchQuery ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado ainda'}
+                        </p>
                     </div>
                 )}
             </main>

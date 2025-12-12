@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/layout/Header'
 import TabNavigation from '@/components/layout/TabNavigation'
@@ -14,58 +13,58 @@ interface Review {
     comment: string | null
     role: 'requester' | 'helper'
     created_at: string
-    reviewer: {
-        name: string | null
-        avatar_url: string | null
-    }
-    request: {
-        title: string
-    }
+    reviewer_id: string
+    reviewer_name?: string
+    request_title?: string
 }
 
 export default function MinhasAvaliacoesPage() {
-    const router = useRouter()
     const [reviews, setReviews] = useState<Review[]>([])
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState<'received' | 'given'>('received')
 
-    // Dados fake para demonstração
-    const fakeReviews: Review[] = [
-        {
-            id: '1',
-            rating: 5,
-            comment: 'Excelente vizinho! Muito prestativo e pontual.',
-            role: 'helper',
-            created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            reviewer: { name: 'Maria Santos', avatar_url: null },
-            request: { title: 'Furadeira para fazer uns furos' }
-        },
-        {
-            id: '2',
-            rating: 5,
-            comment: 'Cuidou muito bem do item emprestado. Recomendo!',
-            role: 'requester',
-            created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-            reviewer: { name: 'Carlos Lima', avatar_url: null },
-            request: { title: 'Escada de 6 degraus' }
-        },
-        {
-            id: '3',
-            rating: 4,
-            comment: null,
-            role: 'helper',
-            created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-            reviewer: { name: 'Ana Paula', avatar_url: null },
-            request: { title: 'Forma de bolo grande' }
-        },
-    ]
-
     useEffect(() => {
-        setTimeout(() => {
-            setReviews(fakeReviews)
-            setLoading(false)
-        }, 300)
+        loadReviews()
     }, [])
+
+    const loadReviews = async () => {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) {
+            setLoading(false)
+            return
+        }
+
+        // Buscar avaliações recebidas
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+            .from('reviews')
+            .select('*')
+            .eq('reviewed_id', user.id)
+            .order('created_at', { ascending: false })
+
+        if (!error && data && data.length > 0) {
+            // Buscar nomes dos revisores
+            const reviewerIds = [...new Set(data.map((r: Review) => r.reviewer_id))]
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: usersData } = await (supabase as any)
+                .from('users')
+                .select('id, name')
+                .in('id', reviewerIds)
+
+            const usersMap = new Map(usersData?.map((u: { id: string; name: string }) => [u.id, u.name]) || [])
+
+            const reviewsWithNames = data.map((r: Review) => ({
+                ...r,
+                reviewer_name: usersMap.get(r.reviewer_id) || 'Usuário'
+            }))
+
+            setReviews(reviewsWithNames)
+        }
+        setLoading(false)
+    }
 
     const renderStars = (rating: number) => {
         const stars = []
@@ -149,10 +148,10 @@ export default function MinhasAvaliacoesPage() {
                             >
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center text-white font-bold">
-                                        {review.reviewer.name?.charAt(0).toUpperCase() || '?'}
+                                        {review.reviewer_name?.charAt(0).toUpperCase() || '?'}
                                     </div>
                                     <div className="flex-1">
-                                        <p className="font-medium">{review.reviewer.name || 'Usuário'}</p>
+                                        <p className="font-medium">{review.reviewer_name || 'Usuário'}</p>
                                         <div className="flex items-center gap-2">
                                             <span className="flex">{renderStars(review.rating)}</span>
                                             <span className="text-xs text-zinc-500" suppressHydrationWarning>
@@ -163,8 +162,6 @@ export default function MinhasAvaliacoesPage() {
                                 </div>
 
                                 <p className="text-xs text-zinc-500 mb-2">
-                                    📦 {review.request.title}
-                                    <span className="mx-1">•</span>
                                     {review.role === 'helper' ? '🤝 Como ajudante' : '📋 Como solicitante'}
                                 </p>
 
@@ -181,7 +178,7 @@ export default function MinhasAvaliacoesPage() {
                         <span className="text-5xl mb-4 block">⭐</span>
                         <h2 className="text-lg font-bold mb-2">Nenhuma avaliação</h2>
                         <p className="text-zinc-500">
-                            Suas avaliações aparecerão aqui
+                            Suas avaliações aparecerão aqui depois que você ajudar ou receber ajuda.
                         </p>
                     </div>
                 )}

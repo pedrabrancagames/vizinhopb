@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import Header from '@/components/layout/Header'
 import TabNavigation from '@/components/layout/TabNavigation'
 import CategoryFilter from '@/components/requests/CategoryFilter'
 import RequestCard from '@/components/requests/RequestCard'
+import { createClient } from '@/lib/supabase/client'
 
 // Importa o mapa dinamicamente para evitar SSR
 const NeighborsMap = dynamic(
@@ -21,62 +22,87 @@ const NeighborsMap = dynamic(
     }
 )
 
-// Dados fake para demonstração
-const fakeRequests = [
-    {
-        id: '1',
-        title: 'Preciso de uma furadeira para fazer uns furos na parede',
-        category: 'ferramentas',
-        urgency: 'high' as const,
-        neighborhood: 'Centro',
-        created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 horas atrás
-        offers_count: 3,
-        user: { name: 'João Silva' }
-    },
-    {
-        id: '2',
-        title: 'Alguém tem uma escada de pelo menos 4 degraus?',
-        category: 'ferramentas',
-        urgency: 'medium' as const,
-        neighborhood: 'Manaíra',
-        created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), // 5 horas atrás
-        offers_count: 1,
-        user: { name: 'Maria Santos' }
-    },
-    {
-        id: '3',
-        title: 'Preciso de uma forma de bolo grande para festa de aniversário',
-        category: 'cozinha',
-        urgency: 'low' as const,
-        neighborhood: 'Tambaú',
-        created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 dia atrás
-        offers_count: 0,
-        user: { name: 'Carlos' }
-    },
-    {
-        id: '4',
-        title: 'Procuro bola de vôlei ou futevôlei para jogar na praia',
-        category: 'esportes',
-        urgency: 'low' as const,
-        neighborhood: 'Cabo Branco',
-        created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 dias atrás
-        offers_count: 2,
-        user: { name: 'Ana Paula' }
-    },
-]
+interface Request {
+    id: string
+    title: string
+    category: string
+    urgency: 'low' | 'medium' | 'high'
+    neighborhood?: string
+    created_at: string
+    offers_count?: number
+    user?: { name: string }
+    user_id?: string
+}
 
 export default function HomePage() {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+    const [requests, setRequests] = useState<Request[]>([])
+    const [loading, setLoading] = useState(true)
+    const [notificationCount, setNotificationCount] = useState(0)
+
+    useEffect(() => {
+        loadRequests()
+    }, [])
+
+    const loadRequests = async () => {
+        const supabase = createClient()
+
+        // Buscar pedidos em aberto
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+            .from('requests')
+            .select('*')
+            .eq('status', 'open')
+            .order('created_at', { ascending: false })
+            .limit(20)
+
+        if (!error && data) {
+            // Buscar usuários e contar ofertas
+            const userIds = [...new Set(data.map((r: Request) => r.user_id))]
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: usersData } = await (supabase as any)
+                .from('users')
+                .select('id, name, neighborhood')
+                .in('id', userIds.length > 0 ? userIds : ['none'])
+
+            const usersMap = new Map(usersData?.map((u: { id: string; name: string; neighborhood: string }) => [u.id, u]) || [])
+
+            // Contar ofertas
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: offersData } = await (supabase as any)
+                .from('offers')
+                .select('request_id')
+
+            const offersCounts = new Map<string, number>()
+            offersData?.forEach((o: { request_id: string }) => {
+                offersCounts.set(o.request_id, (offersCounts.get(o.request_id) || 0) + 1)
+            })
+
+            const requestsWithUsers = data.map((r: Request) => {
+                const user = usersMap.get(r.user_id) as { name: string; neighborhood: string } | undefined
+                return {
+                    ...r,
+                    neighborhood: user?.neighborhood || r.neighborhood,
+                    user: { name: user?.name || 'Usuário' },
+                    offers_count: offersCounts.get(r.id) || 0
+                }
+            })
+
+            setRequests(requestsWithUsers)
+        }
+        setLoading(false)
+    }
 
     // Filtra pedidos por categoria
     const filteredRequests = selectedCategory
-        ? fakeRequests.filter(r => r.category === selectedCategory)
-        : fakeRequests
+        ? requests.filter(r => r.category === selectedCategory)
+        : requests
 
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
             {/* Header */}
-            <Header user={null} notificationCount={2} />
+            <Header user={null} notificationCount={notificationCount} />
 
             {/* Navegação por abas */}
             <TabNavigation />
@@ -100,7 +126,16 @@ export default function HomePage() {
                         📢 Pedidos perto de você
                     </h2>
 
-                    {filteredRequests.length > 0 ? (
+                    {loading ? (
+                        <div className="space-y-3">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="bg-white dark:bg-zinc-800 rounded-xl p-4 animate-pulse">
+                                    <div className="h-5 bg-zinc-200 dark:bg-zinc-700 rounded w-3/4 mb-2" />
+                                    <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded w-1/2" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : filteredRequests.length > 0 ? (
                         <div className="space-y-3">
                             {filteredRequests.map((request) => (
                                 <RequestCard key={request.id} request={request} />
@@ -108,8 +143,15 @@ export default function HomePage() {
                         </div>
                     ) : (
                         <div className="text-center py-12">
-                            <span className="text-4xl mb-4 block">🔍</span>
-                            <p className="text-zinc-500">Nenhum pedido encontrado nesta categoria</p>
+                            <span className="text-4xl mb-4 block">📭</span>
+                            <p className="text-zinc-500 mb-2">
+                                {selectedCategory
+                                    ? 'Nenhum pedido encontrado nesta categoria'
+                                    : 'Nenhum pedido aberto no momento'}
+                            </p>
+                            <p className="text-sm text-zinc-400">
+                                Seja o primeiro a pedir algo!
+                            </p>
                         </div>
                     )}
                 </section>

@@ -1,48 +1,79 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
 import TabNavigation from '@/components/layout/TabNavigation'
+import { formatDistanceToNow } from '@/lib/utils'
+
+interface Conversation {
+    id: string
+    other_user: {
+        id: string
+        name: string | null
+        avatar_url: string | null
+    }
+    last_message: string | null
+    last_message_at: string
+    unread_count: number
+    request_title?: string
+}
 
 export default function ChatPage() {
-    // Dados fake para demonstração
-    const conversations = [
-        {
-            id: '1',
-            otherUser: { name: 'Maria Santos', avatar_url: null },
-            lastMessage: 'Olá! Posso te emprestar a furadeira sim!',
-            lastMessageAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-            unread: true,
-            requestTitle: 'Preciso de uma furadeira',
-        },
-        {
-            id: '2',
-            otherUser: { name: 'Carlos Lima', avatar_url: null },
-            lastMessage: 'Combinado, pode passar aqui amanhã',
-            lastMessageAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            unread: false,
-            requestTitle: 'Alguém tem uma escada?',
-        },
-        {
-            id: '3',
-            otherUser: { name: 'Ana Paula', avatar_url: null },
-            lastMessage: 'Obrigada pela ajuda! 🙏',
-            lastMessageAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-            unread: false,
-            requestTitle: 'Forma de bolo grande',
-        },
-    ]
+    const [conversations, setConversations] = useState<Conversation[]>([])
+    const [loading, setLoading] = useState(true)
 
-    const formatTime = (dateString: string) => {
-        const date = new Date(dateString)
-        const now = new Date()
-        const diffMs = now.getTime() - date.getTime()
-        const diffMins = Math.floor(diffMs / (1000 * 60))
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    useEffect(() => {
+        loadConversations()
+    }, [])
 
-        if (diffMins < 60) return `${diffMins}min`
-        if (diffHours < 24) return `${diffHours}h`
-        return `${diffDays}d`
+    const loadConversations = async () => {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) {
+            setLoading(false)
+            return
+        }
+
+        // Buscar conversas onde o usuário é participante
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+            .from('conversations')
+            .select('*')
+            .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+            .order('updated_at', { ascending: false })
+
+        if (!error && data && data.length > 0) {
+            // Buscar informações dos outros usuários
+            const otherUserIds = data.map((c: { user1_id: string; user2_id: string }) =>
+                c.user1_id === user.id ? c.user2_id : c.user1_id
+            )
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: usersData } = await (supabase as any)
+                .from('users')
+                .select('id, name, avatar_url')
+                .in('id', otherUserIds)
+
+            const usersMap = new Map(usersData?.map((u: { id: string; name: string; avatar_url: string }) => [u.id, u]) || [])
+
+            const conversationsWithUsers = data.map((c: { id: string; user1_id: string; user2_id: string; last_message: string; updated_at: string }) => {
+                const otherId = c.user1_id === user.id ? c.user2_id : c.user1_id
+                const otherUser = usersMap.get(otherId) as { id: string; name: string; avatar_url: string } | undefined
+                return {
+                    id: c.id,
+                    other_user: otherUser || { id: otherId, name: 'Usuário', avatar_url: null },
+                    last_message: c.last_message,
+                    last_message_at: c.updated_at,
+                    unread_count: 0
+                }
+            })
+
+            setConversations(conversationsWithUsers)
+        }
+        setLoading(false)
     }
 
     return (
@@ -50,56 +81,72 @@ export default function ChatPage() {
             <Header user={null} notificationCount={0} />
             <TabNavigation />
 
-            <main className="pb-8">
-                {conversations.length > 0 ? (
-                    <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <main className="px-4 py-4 max-w-lg mx-auto">
+                <h1 className="text-xl font-bold mb-4">💬 Conversas</h1>
+
+                {loading ? (
+                    <div className="space-y-3">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="bg-white dark:bg-zinc-800 rounded-xl p-4 animate-pulse">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                                    <div className="flex-1">
+                                        <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded w-1/2 mb-2" />
+                                        <div className="h-3 bg-zinc-200 dark:bg-zinc-700 rounded w-3/4" />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : conversations.length > 0 ? (
+                    <div className="space-y-2">
                         {conversations.map((conv) => (
-                            <a
+                            <Link
                                 key={conv.id}
                                 href={`/chat/${conv.id}`}
-                                className="flex items-center gap-3 p-4 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+                                className="flex items-center gap-3 p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800 hover:shadow-md transition-all"
                             >
-                                {/* Avatar */}
                                 <div className="relative">
-                                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center text-white text-xl font-bold overflow-hidden">
-                                        {conv.otherUser.avatar_url ? (
-                                            <img src={conv.otherUser.avatar_url} alt="" className="w-full h-full object-cover" />
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center text-white font-bold overflow-hidden">
+                                        {conv.other_user.avatar_url ? (
+                                            <img src={conv.other_user.avatar_url} alt="" className="w-full h-full object-cover" />
                                         ) : (
-                                            conv.otherUser.name?.charAt(0).toUpperCase() || '?'
+                                            conv.other_user.name?.charAt(0).toUpperCase() || '?'
                                         )}
                                     </div>
-                                    {conv.unread && (
-                                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full border-2 border-white dark:border-zinc-950" />
+                                    {conv.unread_count > 0 && (
+                                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                            {conv.unread_count}
+                                        </span>
                                     )}
                                 </div>
-
-                                {/* Info */}
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <h3 className={`font-semibold truncate ${conv.unread ? 'text-foreground' : 'text-zinc-700 dark:text-zinc-300'}`}>
-                                            {conv.otherUser.name}
-                                        </h3>
-                                        <span className="text-xs text-zinc-500 flex-shrink-0 ml-2">
-                                            {formatTime(conv.lastMessageAt)}
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-semibold truncate">{conv.other_user.name || 'Usuário'}</h3>
+                                        <span className="text-xs text-zinc-400" suppressHydrationWarning>
+                                            {formatDistanceToNow(conv.last_message_at)}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-zinc-500 truncate mb-1">
-                                        📦 {conv.requestTitle}
-                                    </p>
-                                    <p className={`text-sm truncate ${conv.unread ? 'font-medium text-foreground' : 'text-zinc-500'}`}>
-                                        {conv.lastMessage}
+                                    <p className={`text-sm truncate ${conv.unread_count > 0 ? 'text-zinc-800 dark:text-zinc-200 font-medium' : 'text-zinc-500'}`}>
+                                        {conv.last_message || 'Nenhuma mensagem'}
                                     </p>
                                 </div>
-                            </a>
+                            </Link>
                         ))}
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-                        <span className="text-6xl mb-4">💬</span>
-                        <h2 className="text-xl font-bold mb-2">Nenhuma conversa ainda</h2>
-                        <p className="text-zinc-500">
-                            Quando você oferecer ajuda ou receber ofertas, suas conversas aparecerão aqui.
+                    <div className="text-center py-12">
+                        <span className="text-5xl mb-4 block">💬</span>
+                        <h2 className="text-lg font-bold mb-2">Nenhuma conversa</h2>
+                        <p className="text-zinc-500 mb-4">
+                            Suas conversas aparecerão aqui quando você oferecer ajuda ou receber ofertas.
                         </p>
+                        <Link
+                            href="/"
+                            className="inline-block py-3 px-6 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-all"
+                        >
+                            Ver pedidos
+                        </Link>
                     </div>
                 )}
             </main>
