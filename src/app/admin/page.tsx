@@ -170,6 +170,29 @@ export default function AdminPage() {
                     </div>
                 </section>
 
+                {/* Atalhos */}
+                <section className="mb-8">
+                    <h2 className="text-lg font-bold mb-4">⚡ Atalhos</h2>
+                    <div className="grid grid-cols-2 gap-3">
+                        <Link
+                            href="/admin/moderadores"
+                            className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-zinc-100 dark:border-zinc-800 hover:shadow-md hover:border-primary/30 transition-all"
+                        >
+                            <span className="text-2xl mb-2 block">🛡️</span>
+                            <h3 className="font-semibold">Gerenciar Equipe</h3>
+                            <p className="text-sm text-zinc-500">Moderadores e admins</p>
+                        </Link>
+                        <Link
+                            href="/admin/empresas/nova"
+                            className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-zinc-100 dark:border-zinc-800 hover:shadow-md hover:border-primary/30 transition-all"
+                        >
+                            <span className="text-2xl mb-2 block">🏢</span>
+                            <h3 className="font-semibold">Nova Empresa</h3>
+                            <p className="text-sm text-zinc-500">Cadastrar serviço</p>
+                        </Link>
+                    </div>
+                </section>
+
                 {/* Gerenciar Empresas */}
                 <section>
                     <div className="flex items-center justify-between mb-4">
@@ -189,8 +212,8 @@ export default function AdminPage() {
                                 key={status}
                                 onClick={() => setFilterStatus(status)}
                                 className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${filterStatus === status
-                                        ? 'bg-primary text-white'
-                                        : 'bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                                    ? 'bg-primary text-white'
+                                    : 'bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700'
                                     }`}
                             >
                                 {status === 'all' ? 'Todos' : APPROVAL_STATUS[status as keyof typeof APPROVAL_STATUS]?.label || status}
@@ -237,10 +260,10 @@ export default function AdminPage() {
                                         </div>
 
                                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${business.approval_status === 'approved'
-                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                                : business.approval_status === 'pending'
-                                                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                            : business.approval_status === 'pending'
+                                                ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                                             }`}>
                                             {APPROVAL_STATUS[business.approval_status]?.icon} {APPROVAL_STATUS[business.approval_status]?.label}
                                         </span>
