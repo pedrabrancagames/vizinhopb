@@ -223,10 +223,17 @@ export default function PerfilPage() {
                         </span>
                         <span className="text-zinc-400">→</span>
                     </Link>
-                    <Link href="/minhas-ajudas" className="flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                    <Link href="/minhas-ajudas" className="flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors border-b border-zinc-100 dark:border-zinc-800">
                         <span className="flex items-center gap-3">
                             <span className="text-xl">🤝</span>
                             <span className="font-medium">Minhas Ajudas</span>
+                        </span>
+                        <span className="text-zinc-400">→</span>
+                    </Link>
+                    <Link href="/minhas-avaliacoes" className="flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                        <span className="flex items-center gap-3">
+                            <span className="text-xl">⭐</span>
+                            <span className="font-medium">Minhas Avaliações</span>
                         </span>
                         <span className="text-zinc-400">→</span>
                     </Link>
