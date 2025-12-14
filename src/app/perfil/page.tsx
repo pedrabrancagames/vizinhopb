@@ -13,6 +13,8 @@ interface UserProfile {
     bio: string | null
     neighborhood: string | null
     city: string | null
+    latitude: number | null
+    longitude: number | null
     rating_as_requester: number
     rating_as_helper: number
     total_requests: number
@@ -26,6 +28,8 @@ export default function PerfilPage() {
     const [loading, setLoading] = useState(true)
     const [editing, setEditing] = useState(false)
     const [saving, setSaving] = useState(false)
+    const [gettingLocation, setGettingLocation] = useState(false)
+    const [locationError, setLocationError] = useState('')
     const [formData, setFormData] = useState({
         name: '',
         bio: '',
@@ -91,6 +95,47 @@ export default function PerfilPage() {
         }
 
         setSaving(false)
+    }
+
+    const handleGetLocation = async () => {
+        if (!profile) return
+        setLocationError('')
+        setGettingLocation(true)
+
+        if (!('geolocation' in navigator)) {
+            setLocationError('Geolocalização não suportada neste navegador')
+            setGettingLocation(false)
+            return
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords
+                const supabase = createClient()
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { error } = await (supabase as any)
+                    .from('users')
+                    .update({ latitude, longitude })
+                    .eq('id', profile.id)
+
+                if (!error) {
+                    setProfile({ ...profile, latitude, longitude })
+                } else {
+                    setLocationError('Erro ao salvar localização')
+                }
+                setGettingLocation(false)
+            },
+            (err) => {
+                if (err.code === 1) {
+                    setLocationError('Permissão de localização negada. Habilite nas configurações do navegador.')
+                } else {
+                    setLocationError('Erro ao obter localização')
+                }
+                setGettingLocation(false)
+            },
+            { enableHighAccuracy: true, timeout: 15000 }
+        )
     }
 
     const handleLogout = async () => {
@@ -192,6 +237,45 @@ export default function PerfilPage() {
                             </select>
                         ) : (
                             <p className="font-medium">{profile.neighborhood || 'Não informado'}</p>
+                        )}
+                    </div>
+
+                    {/* Localização GPS */}
+                    <div className="p-4 border-b border-zinc-100 dark:border-zinc-800">
+                        <label className="text-sm text-zinc-500 block mb-1">📍 Localização no Mapa</label>
+                        {profile.latitude && profile.longitude ? (
+                            <div className="flex items-center justify-between">
+                                <span className="text-green-600 dark:text-green-400 flex items-center gap-2">
+                                    ✅ Localização definida
+                                </span>
+                                <button
+                                    onClick={handleGetLocation}
+                                    disabled={gettingLocation}
+                                    className="text-sm text-primary font-medium hover:underline"
+                                >
+                                    {gettingLocation ? 'Atualizando...' : 'Atualizar'}
+                                </button>
+                            </div>
+                        ) : (
+                            <div>
+                                <button
+                                    onClick={handleGetLocation}
+                                    disabled={gettingLocation}
+                                    className="w-full py-2.5 px-4 bg-primary/10 text-primary rounded-lg font-medium hover:bg-primary/20 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    {gettingLocation ? (
+                                        <>⏳ Obtendo localização...</>
+                                    ) : (
+                                        <>📍 Compartilhar minha localização</>
+                                    )}
+                                </button>
+                                <p className="text-xs text-zinc-400 mt-2 text-center">
+                                    Permite que outros vizinhos vejam você no mapa
+                                </p>
+                            </div>
+                        )}
+                        {locationError && (
+                            <p className="text-red-500 text-sm mt-2">{locationError}</p>
                         )}
                     </div>
 

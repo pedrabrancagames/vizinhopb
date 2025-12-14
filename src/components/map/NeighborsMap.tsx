@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { MAP_CONFIG } from '@/lib/constants'
+import { createClient } from '@/lib/supabase/client'
 import 'leaflet/dist/leaflet.css'
 
 // Importa o mapa dinamicamente para evitar SSR
@@ -26,25 +27,57 @@ interface Neighbor {
 }
 
 interface NeighborsMapProps {
-    neighbors?: Neighbor[]
-    userLocation?: [number, number]
     className?: string
 }
 
 export default function NeighborsMap({
-    neighbors = [],
-    userLocation,
     className = ''
 }: NeighborsMapProps) {
     const [isMounted, setIsMounted] = useState(false)
-    const center = userLocation || MAP_CONFIG.defaultCenter
+    const [neighbors, setNeighbors] = useState<Neighbor[]>([])
+    const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         setIsMounted(true)
+        loadNeighbors()
+        requestUserLocation()
     }, [])
 
-    // Gera vizinhos fake para demonstração se não houver dados
-    const displayNeighbors = neighbors.length > 0 ? neighbors : generateFakeNeighbors(center, 30)
+    const loadNeighbors = async () => {
+        const supabase = createClient()
+
+        // Buscar usuários com localização definida
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data } = await (supabase as any)
+            .from('users')
+            .select('id, latitude, longitude')
+            .not('latitude', 'is', null)
+            .not('longitude', 'is', null)
+            .limit(100)
+
+        if (data && data.length > 0) {
+            setNeighbors(data)
+        }
+        setLoading(false)
+    }
+
+    const requestUserLocation = () => {
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setUserLocation([position.coords.latitude, position.coords.longitude])
+                },
+                () => {
+                    // Falhou - usa localização padrão
+                    console.log('Geolocalização não permitida')
+                },
+                { enableHighAccuracy: false, timeout: 10000 }
+            )
+        }
+    }
+
+    const center = userLocation || MAP_CONFIG.defaultCenter
 
     if (!isMounted) {
         return (
@@ -71,7 +104,7 @@ export default function NeighborsMap({
                 />
 
                 {/* Marcadores dos vizinhos */}
-                {displayNeighbors.map((neighbor, index) => (
+                {neighbors.map((neighbor, index) => (
                     <CircleMarker
                         key={neighbor.id || index}
                         center={[neighbor.latitude, neighbor.longitude]}
@@ -103,25 +136,17 @@ export default function NeighborsMap({
             {/* Badge com quantidade de vizinhos */}
             <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-white dark:bg-zinc-900 px-4 py-2 rounded-full shadow-lg border border-zinc-200 dark:border-zinc-700">
                 <span className="text-sm font-medium">
-                    <span className="text-primary font-bold">{displayNeighbors.length}</span> vizinhos ativos por perto
+                    {loading ? (
+                        'Carregando...'
+                    ) : neighbors.length > 0 ? (
+                        <>
+                            <span className="text-primary font-bold">{neighbors.length}</span> vizinhos ativos
+                        </>
+                    ) : (
+                        'Seja o primeiro vizinho!'
+                    )}
                 </span>
             </div>
         </div>
     )
-}
-
-// Gera vizinhos fake para demonstração
-function generateFakeNeighbors(center: [number, number], count: number): Neighbor[] {
-    const neighbors: Neighbor[] = []
-    for (let i = 0; i < count; i++) {
-        // Adiciona variação aleatória de ~3km ao redor do centro
-        const latOffset = (Math.random() - 0.5) * 0.05
-        const lngOffset = (Math.random() - 0.5) * 0.05
-        neighbors.push({
-            id: `fake-${i}`,
-            latitude: center[0] + latOffset,
-            longitude: center[1] + lngOffset,
-        })
-    }
-    return neighbors
 }
