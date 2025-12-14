@@ -21,7 +21,7 @@ export default function Header({ user, notificationCount = 0 }: HeaderProps) {
 
     return (
         <>
-            <header className="fixed top-0 left-0 right-0 z-30 glass border-b border-zinc-200 dark:border-zinc-800">
+            <header className="fixed top-0 left-0 right-0 z-30 glass transition-all duration-300">
                 <div className="flex items-center justify-between px-4 py-3">
                     {/* Botão do menu hamburguer */}
                     <button

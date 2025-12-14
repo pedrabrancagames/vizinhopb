@@ -100,7 +100,7 @@ export default function HomePage() {
         : requests
 
     return (
-        <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+        <div className="min-h-screen">
             {/* Header */}
             <Header user={null} notificationCount={notificationCount} />
 
@@ -108,10 +108,10 @@ export default function HomePage() {
             <TabNavigation />
 
             {/* Conteúdo principal */}
-            <main className="pb-24">
+            <main className="pb-24 pt-4">
                 {/* Mapa de vizinhos */}
-                <div className="px-4 py-4">
-                    <NeighborsMap className="h-48" />
+                <div className="px-4 mb-6">
+                    <NeighborsMap className="h-48 glass rounded-xl overflow-hidden shadow-lg" />
                 </div>
 
                 {/* Filtro de categorias */}
@@ -121,29 +121,26 @@ export default function HomePage() {
                 />
 
                 {/* Feed de pedidos */}
-                <section className="px-4 py-4">
-                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                <section className="px-4">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gradient">
                         📢 Pedidos perto de você
                     </h2>
 
                     {loading ? (
                         <div className="space-y-3">
                             {[1, 2, 3].map((i) => (
-                                <div key={i} className="bg-white dark:bg-zinc-800 rounded-xl p-4 animate-pulse">
-                                    <div className="h-5 bg-zinc-200 dark:bg-zinc-700 rounded w-3/4 mb-2" />
-                                    <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded w-1/2" />
-                                </div>
+                                <div key={i} className="glass rounded-xl p-4 animate-pulse h-32" />
                             ))}
                         </div>
                     ) : filteredRequests.length > 0 ? (
-                        <div className="space-y-3">
+                        <div className="space-y-4 animate-fade-in">
                             {filteredRequests.map((request) => (
                                 <RequestCard key={request.id} request={request} />
                             ))}
                         </div>
                     ) : (
-                        <div className="text-center py-12">
-                            <span className="text-4xl mb-4 block">📭</span>
+                        <div className="text-center py-12 glass rounded-xl">
+                            <span className="text-4xl mb-4 block animate-bounce">📭</span>
                             <p className="text-zinc-500 mb-2">
                                 {selectedCategory
                                     ? 'Nenhum pedido encontrado nesta categoria'
@@ -160,7 +157,7 @@ export default function HomePage() {
             {/* Botão flutuante para novo pedido */}
             <Link
                 href="/novo-pedido"
-                className="fixed bottom-6 right-6 w-14 h-14 bg-primary hover:bg-primary-dark text-white rounded-full shadow-lg flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95 z-20"
+                className="fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-r from-primary to-primary-dark text-white rounded-full shadow-lg shadow-primary/40 flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95 z-20 animate-slide-in"
                 aria-label="Criar novo pedido"
             >
                 ➕

@@ -18,14 +18,14 @@ export default function TabNavigation() {
     }
 
     return (
-        <nav className="flex items-center justify-around bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-2">
+        <nav className="flex items-center justify-around glass px-2">
             {tabs.map((tab) => (
                 <Link
                     key={tab.href}
                     href={tab.href}
                     className={`flex-1 flex flex-col items-center gap-1 py-3 px-4 transition-all ${isActive(tab.href)
-                            ? 'text-primary border-b-2 border-primary bg-primary/5'
-                            : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                        ? 'text-primary border-b-2 border-primary bg-primary/5'
+                        : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
                         }`}
                 >
                     <span className="text-xl">{tab.icon}</span>

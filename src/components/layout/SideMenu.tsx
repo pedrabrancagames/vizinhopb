@@ -47,7 +47,7 @@ export default function SideMenu({ isOpen, onClose, user }: SideMenuProps) {
 
             {/* Menu lateral */}
             <div
-                className={`fixed top-0 left-0 h-full w-72 bg-white dark:bg-zinc-900 z-50 shadow-2xl transform transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full'
+                className={`fixed top-0 left-0 h-full w-72 glass border-r pointer-events-auto transform transition-transform duration-300 ease-out z-50 ${isOpen ? 'translate-x-0' : '-translate-x-full'
                     }`}
             >
                 {/* Header do menu */}
@@ -100,8 +100,8 @@ export default function SideMenu({ isOpen, onClose, user }: SideMenuProps) {
                             href={item.href}
                             onClick={onClose}
                             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${pathname === item.href
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                ? 'bg-primary/10 text-primary'
+                                : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'
                                 }`}
                         >
                             <span className="text-xl">{item.icon}</span>
@@ -119,8 +119,8 @@ export default function SideMenu({ isOpen, onClose, user }: SideMenuProps) {
                                     href={item.href}
                                     onClick={onClose}
                                     className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${pathname.startsWith(item.href)
-                                            ? 'bg-primary/10 text-primary'
-                                            : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                        ? 'bg-primary/10 text-primary'
+                                        : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'
                                         }`}
                                 >
                                     <span className="text-xl">{item.icon}</span>

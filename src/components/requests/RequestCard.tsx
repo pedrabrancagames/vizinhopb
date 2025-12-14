@@ -26,7 +26,8 @@ export default function RequestCard({ request }: RequestCardProps) {
 
     return (
         <Link href={`/pedido/${request.id}`}>
-            <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-zinc-100 dark:border-zinc-800 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group">
+            <div className="glass-card p-4 hover:border-primary/50 cursor-pointer group relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 {/* Header com urgência */}
                 <div className="flex items-center justify-between mb-2">
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${request.urgency === 'high'

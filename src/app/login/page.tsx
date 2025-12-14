@@ -66,12 +66,12 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col justify-center bg-gradient-to-br from-primary/5 via-white to-secondary/5 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950">
-            <div className="px-6 py-12 max-w-md mx-auto w-full">
+        <div className="min-h-screen flex flex-col justify-center items-center p-4">
+            <div className="glass w-full max-w-md p-8 rounded-2xl shadow-xl animate-fade-up">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <span className="text-5xl mb-4 block">🏘️</span>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent">
+                    <span className="text-6xl mb-4 block animate-bounce">🏘️</span>
+                    <h1 className="text-3xl font-bold text-gradient">
                         Vizinho PB
                     </h1>
                     <p className="text-zinc-500 mt-2">Entre na sua conta</p>
@@ -80,13 +80,13 @@ export default function LoginPage() {
                 {/* Formulário */}
                 <form onSubmit={handleLogin} className="space-y-4">
                     {error && (
-                        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">
+                        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm animate-shake">
                             {error}
                         </div>
                     )}
 
                     <div>
-                        <label htmlFor="email" className="block text-sm font-medium mb-2">
+                        <label htmlFor="email" className="block text-sm font-medium mb-2 pl-1">
                             Email
                         </label>
                         <input
@@ -96,12 +96,12 @@ export default function LoginPage() {
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="seu@email.com"
                             required
-                            className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                            className="input-field"
                         />
                     </div>
 
                     <div>
-                        <label htmlFor="password" className="block text-sm font-medium mb-2">
+                        <label htmlFor="password" className="block text-sm font-medium mb-2 pl-1">
                             Senha
                         </label>
                         <input
@@ -112,14 +112,14 @@ export default function LoginPage() {
                             placeholder="••••••••"
                             required
                             minLength={6}
-                            className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                            className="input-field"
                         />
                     </div>
 
                     <div className="flex justify-end">
                         <Link
                             href="/recuperar-senha"
-                            className="text-sm text-primary hover:text-primary-dark transition-colors"
+                            className="text-sm text-primary hover:text-primary-light transition-colors"
                         >
                             Esqueceu a senha?
                         </Link>
@@ -128,7 +128,7 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 px-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/25"
+                        className="btn-primary w-full"
                     >
                         {loading ? 'Entrando...' : 'Entrar'}
                     </button>
@@ -145,7 +145,7 @@ export default function LoginPage() {
                 <button
                     onClick={handleGoogleLogin}
                     disabled={loading}
-                    className="w-full py-3 px-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl font-medium flex items-center justify-center gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all disabled:opacity-50"
+                    className="w-full py-3 px-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl font-medium flex items-center justify-center gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-95"
                 >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                         <path
@@ -171,7 +171,7 @@ export default function LoginPage() {
                 {/* Link para cadastro */}
                 <p className="text-center mt-8 text-zinc-600 dark:text-zinc-400">
                     Não tem conta?{' '}
-                    <Link href="/cadastro" className="text-primary font-semibold hover:text-primary-dark transition-colors">
+                    <Link href="/cadastro" className="text-primary font-bold hover:text-primary-light transition-colors hover:underline">
                         Cadastre-se
                     </Link>
                 </p>
