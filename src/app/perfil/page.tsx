@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { getLevelFromPoints, getProgressToNextLevel, LEVELS } from '@/lib/gamification'
 
 interface UserProfile {
     id: string
@@ -19,7 +20,20 @@ interface UserProfile {
     rating_as_helper: number
     total_requests: number
     total_helps: number
+    points: number
+    level: number
     created_at: string
+}
+
+interface UserBadge {
+    id: string
+    earned_at: string
+    badge: {
+        id: string
+        slug: string
+        name: string
+        icon: string
+    }
 }
 
 export default function PerfilPage() {
@@ -35,6 +49,7 @@ export default function PerfilPage() {
         bio: '',
         neighborhood: '',
     })
+    const [userBadges, setUserBadges] = useState<UserBadge[]>([])
 
     const neighborhoods = [
         'Centro', 'Manaíra', 'Tambaú', 'Cabo Branco', 'Bessa',
@@ -63,12 +78,28 @@ export default function PerfilPage() {
             .single()
 
         if (!error && data) {
-            setProfile(data)
+            setProfile({
+                ...data,
+                points: data.points || 0,
+                level: data.level || 1,
+            })
             setFormData({
                 name: data.name || '',
                 bio: data.bio || '',
                 neighborhood: data.neighborhood || '',
             })
+
+            // Carregar badges do usuário
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: badgesData } = await (supabase as any)
+                .from('user_badges')
+                .select('id, earned_at, badge:badges(id, slug, name, icon)')
+                .eq('user_id', user.id)
+                .order('earned_at', { ascending: false })
+
+            if (badgesData) {
+                setUserBadges(badgesData)
+            }
         }
         setLoading(false)
     }
@@ -198,6 +229,82 @@ export default function PerfilPage() {
                     )}
                     <p className="text-zinc-500">{profile.email}</p>
                 </div>
+
+                {/* Gamificação - Nível e Pontos */}
+                {(() => {
+                    const levelInfo = getLevelFromPoints(profile.points)
+                    const { progress, pointsToNext, nextLevel } = getProgressToNextLevel(profile.points)
+                    return (
+                        <div className="bg-gradient-to-br from-primary/10 to-purple-100 dark:from-primary/20 dark:to-purple-900/20 rounded-xl p-4 mb-6 border border-primary/20">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-4xl">{levelInfo.icon}</span>
+                                    <div>
+                                        <p className={`font-bold text-lg ${levelInfo.color}`}>{levelInfo.name}</p>
+                                        <p className="text-sm text-zinc-600 dark:text-zinc-400">Nível {levelInfo.level}</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-2xl font-bold text-primary">{profile.points}</p>
+                                    <p className="text-xs text-zinc-500">pontos</p>
+                                </div>
+                            </div>
+
+                            {nextLevel && (
+                                <div className="mb-3">
+                                    <div className="flex justify-between text-xs text-zinc-500 mb-1">
+                                        <span>Progresso para {nextLevel.name}</span>
+                                        <span>{pointsToNext} pts restantes</span>
+                                    </div>
+                                    <div className="h-2 bg-white/50 dark:bg-zinc-700 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-primary to-primary-light transition-all duration-500"
+                                            style={{ width: `${progress}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            <Link
+                                href="/ranking"
+                                className="flex items-center justify-between text-sm text-primary font-medium hover:underline"
+                            >
+                                <span>🏆 Ver Ranking e Conquistas</span>
+                                <span>→</span>
+                            </Link>
+                        </div>
+                    )
+                })()}
+
+                {userBadges.length > 0 && (
+                    <div className="mb-6">
+                        <h3 className="font-semibold mb-3 flex items-center gap-2">
+                            🎖️ Minhas Conquistas
+                            <span className="text-xs text-zinc-500 font-normal">({userBadges.length})</span>
+                        </h3>
+                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                            {userBadges.slice(0, 8).map((ub) => (
+                                <div
+                                    key={ub.id}
+                                    className="flex-shrink-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 px-3 py-2 rounded-lg text-center min-w-[70px]"
+                                    title={ub.badge.name}
+                                >
+                                    <span className="text-2xl block">{ub.badge.icon}</span>
+                                    <p className="text-[10px] text-zinc-500 truncate">{ub.badge.name}</p>
+                                </div>
+                            ))}
+                            {userBadges.length > 8 && (
+                                <Link
+                                    href="/ranking"
+                                    className="flex-shrink-0 bg-zinc-100 dark:bg-zinc-800 px-3 py-2 rounded-lg text-center min-w-[70px] flex flex-col items-center justify-center"
+                                >
+                                    <span className="text-lg text-zinc-400">+{userBadges.length - 8}</span>
+                                    <p className="text-[10px] text-zinc-500">ver mais</p>
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Estatísticas */}
                 <div className="grid grid-cols-2 gap-3 mb-6">

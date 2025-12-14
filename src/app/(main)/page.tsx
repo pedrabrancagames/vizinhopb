@@ -7,6 +7,8 @@ import Header from '@/components/layout/Header'
 import TabNavigation from '@/components/layout/TabNavigation'
 import CategoryFilter from '@/components/requests/CategoryFilter'
 import RequestCard from '@/components/requests/RequestCard'
+import InstallPWA from '@/components/pwa/InstallPWA'
+import NotificationPrompt from '@/components/pwa/NotificationPrompt'
 import { createClient } from '@/lib/supabase/client'
 import { URGENCY_LEVELS } from '@/lib/constants'
 
@@ -259,6 +261,12 @@ export default function HomePage() {
             >
                 ➕
             </Link>
+
+            {/* PWA Install Banner */}
+            <InstallPWA />
+
+            {/* Notification Prompt */}
+            <NotificationPrompt />
         </div>
     )
 }
