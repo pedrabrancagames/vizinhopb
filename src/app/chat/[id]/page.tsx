@@ -1,18 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { formatDistanceToNow } from '@/lib/utils'
+import { useRealtimeMessages, Message } from '@/lib/hooks/useRealtimeMessages'
 
-interface Message {
-    id: string
-    sender_id: string
-    content: string
-    created_at: string
-    read: boolean
-}
+// Message type is now imported from the hook
 
 interface Conversation {
     id: string
@@ -57,6 +52,24 @@ export default function ChatConversationPage() {
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
+
+    // Callback para lidar com novas mensagens em tempo real
+    const handleNewMessage = useCallback((newMsg: Message) => {
+        setMessages((prev) => {
+            // Evitar duplicatas (a mensagem enviada pelo próprio usuário já foi adicionada)
+            if (prev.some((m) => m.id === newMsg.id)) {
+                return prev
+            }
+            return [...prev, newMsg]
+        })
+    }, [])
+
+    // Subscrição em tempo real para novas mensagens
+    useRealtimeMessages({
+        conversationId: params.id as string,
+        onNewMessage: handleNewMessage,
+        enabled: !loading && !!conversation,
+    })
 
     const loadConversation = async () => {
         const supabase = createClient()
@@ -205,8 +218,8 @@ export default function ChatConversationPage() {
                                 >
                                     <div
                                         className={`max-w-[80%] px-4 py-2 rounded-2xl ${isMine
-                                                ? 'bg-primary text-white rounded-br-md'
-                                                : 'bg-white dark:bg-zinc-800 rounded-bl-md'
+                                            ? 'bg-primary text-white rounded-br-md'
+                                            : 'bg-white dark:bg-zinc-800 rounded-bl-md'
                                             }`}
                                     >
                                         <p className="whitespace-pre-wrap break-words">{msg.content}</p>
