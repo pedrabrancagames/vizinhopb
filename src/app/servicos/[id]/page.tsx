@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getWhatsAppLink, formatPhoneNumber, formatDistanceToNow } from '@/lib/utils'
@@ -29,17 +29,34 @@ interface Review {
     comment: string | null
     created_at: string
     user_name?: string
+    user_id?: string
 }
 
 export default function EmpresaDetalhePage() {
     const params = useParams()
+    const router = useRouter()
     const [business, setBusiness] = useState<Business | null>(null)
     const [reviews, setReviews] = useState<Review[]>([])
     const [loading, setLoading] = useState(true)
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+    // Review form state
+    const [showReviewForm, setShowReviewForm] = useState(false)
+    const [reviewRating, setReviewRating] = useState(5)
+    const [reviewComment, setReviewComment] = useState('')
+    const [submittingReview, setSubmittingReview] = useState(false)
+    const [hoveredStar, setHoveredStar] = useState(0)
 
     useEffect(() => {
         loadBusiness()
+        checkUser()
     }, [params.id])
+
+    const checkUser = async () => {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        setCurrentUserId(user?.id || null)
+    }
 
     const loadBusiness = async () => {
         const supabase = createClient()
@@ -86,6 +103,46 @@ export default function EmpresaDetalhePage() {
         setLoading(false)
     }
 
+    const handleSubmitReview = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!currentUserId) {
+            router.push('/login')
+            return
+        }
+
+        setSubmittingReview(true)
+        const supabase = createClient()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+            .from('business_reviews')
+            .insert({
+                business_id: params.id,
+                user_id: currentUserId,
+                rating: reviewRating,
+                comment: reviewComment.trim() || null
+            })
+
+        if (!error) {
+            // Recalcular rating da empresa
+            const newTotalReviews = (business?.total_reviews || 0) + 1
+            const newRating = ((business?.rating || 0) * (business?.total_reviews || 0) + reviewRating) / newTotalReviews
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase as any)
+                .from('businesses')
+                .update({ rating: newRating, total_reviews: newTotalReviews })
+                .eq('id', params.id)
+
+            setShowReviewForm(false)
+            setReviewRating(5)
+            setReviewComment('')
+            loadBusiness()
+        }
+
+        setSubmittingReview(false)
+    }
+
     const renderStars = (rating: number) => {
         const stars = []
         for (let i = 1; i <= 5; i++) {
@@ -102,6 +159,8 @@ export default function EmpresaDetalhePage() {
         const cat = BUSINESS_CATEGORIES.find(c => c.id === categoryId)
         return cat || { name: categoryId, icon: '🏢' }
     }
+
+    const hasUserReviewed = reviews.some(r => r.user_id === currentUserId)
 
     if (loading) {
         return (
@@ -214,7 +273,66 @@ export default function EmpresaDetalhePage() {
 
                 {/* Avaliações */}
                 <div>
-                    <h2 className="text-lg font-bold mb-4">⭐ Avaliações</h2>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-bold">⭐ Avaliações</h2>
+                        {currentUserId && !hasUserReviewed && !showReviewForm && (
+                            <button
+                                onClick={() => setShowReviewForm(true)}
+                                className="text-sm text-primary font-medium hover:underline"
+                            >
+                                + Avaliar
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Review Form */}
+                    {showReviewForm && (
+                        <form onSubmit={handleSubmitReview} className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800 mb-4">
+                            <h3 className="font-medium mb-3">Sua avaliação</h3>
+
+                            {/* Stars */}
+                            <div className="flex gap-1 mb-3">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                        key={star}
+                                        type="button"
+                                        onClick={() => setReviewRating(star)}
+                                        onMouseEnter={() => setHoveredStar(star)}
+                                        onMouseLeave={() => setHoveredStar(0)}
+                                        className="text-2xl transition-transform hover:scale-110"
+                                    >
+                                        {star <= (hoveredStar || reviewRating) ? '⭐' : '☆'}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <textarea
+                                value={reviewComment}
+                                onChange={(e) => setReviewComment(e.target.value)}
+                                placeholder="Comentário (opcional)"
+                                rows={2}
+                                className="input-field resize-none mb-3"
+                            />
+
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowReviewForm(false)}
+                                    className="flex-1 py-2 px-4 border border-zinc-300 dark:border-zinc-700 rounded-lg font-medium"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={submittingReview}
+                                    className="flex-1 btn-primary"
+                                >
+                                    {submittingReview ? 'Enviando...' : 'Enviar'}
+                                </button>
+                            </div>
+                        </form>
+                    )}
+
                     {reviews.length > 0 ? (
                         <div className="space-y-3">
                             {reviews.map((review) => (
@@ -244,6 +362,14 @@ export default function EmpresaDetalhePage() {
                         <div className="text-center py-8 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800">
                             <span className="text-3xl mb-2 block">⭐</span>
                             <p className="text-zinc-500">Nenhuma avaliação ainda</p>
+                            {currentUserId && !showReviewForm && (
+                                <button
+                                    onClick={() => setShowReviewForm(true)}
+                                    className="mt-2 text-primary font-medium hover:underline"
+                                >
+                                    Seja o primeiro a avaliar!
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
