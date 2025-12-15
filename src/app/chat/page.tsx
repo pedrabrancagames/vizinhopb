@@ -32,7 +32,10 @@ export default function ChatPage() {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
 
+        console.log('[Chat] User:', user?.id || 'not logged in')
+
         if (!user) {
+            console.log('[Chat] Usuário não está logado')
             setLoading(false)
             return
         }
@@ -52,51 +55,64 @@ export default function ChatPage() {
             .or(`requester_id.eq.${user.id},helper_id.eq.${user.id}`)
             .order('last_message_at', { ascending: false })
 
-        if (!error && data && data.length > 0) {
-            // Buscar informações dos outros usuários
-            const otherUserIds = data.map((c: { requester_id: string; helper_id: string }) =>
-                c.requester_id === user.id ? c.helper_id : c.requester_id
-            )
+        console.log('[Chat] Query result:', { data, error, dataLength: data?.length })
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data: usersData } = await (supabase as any)
-                .from('users')
-                .select('id, name, avatar_url')
-                .in('id', otherUserIds)
-
-            // Buscar última mensagem de cada conversa
-            const conversationIds = data.map((c: { id: string }) => c.id)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data: messagesData } = await (supabase as any)
-                .from('messages')
-                .select('conversation_id, content, created_at')
-                .in('conversation_id', conversationIds)
-                .order('created_at', { ascending: false })
-
-            // Criar map de última mensagem por conversa
-            const lastMessageMap = new Map<string, string>()
-            messagesData?.forEach((m: { conversation_id: string; content: string }) => {
-                if (!lastMessageMap.has(m.conversation_id)) {
-                    lastMessageMap.set(m.conversation_id, m.content)
-                }
-            })
-
-            const usersMap = new Map(usersData?.map((u: { id: string; name: string; avatar_url: string }) => [u.id, u]) || [])
-
-            const conversationsWithUsers = data.map((c: { id: string; requester_id: string; helper_id: string; last_message_at: string }) => {
-                const otherId = c.requester_id === user.id ? c.helper_id : c.requester_id
-                const otherUser = usersMap.get(otherId) as { id: string; name: string; avatar_url: string } | undefined
-                return {
-                    id: c.id,
-                    other_user: otherUser || { id: otherId, name: 'Usuário', avatar_url: null },
-                    last_message: lastMessageMap.get(c.id) || null,
-                    last_message_at: c.last_message_at,
-                    unread_count: 0
-                }
-            })
-
-            setConversations(conversationsWithUsers)
+        if (error) {
+            console.error('[Chat] Erro ao buscar conversas:', error)
+            setLoading(false)
+            return
         }
+
+        if (!data || data.length === 0) {
+            console.log('[Chat] Nenhuma conversa encontrada')
+            setLoading(false)
+            return
+        }
+
+        // Buscar informações dos outros usuários
+        const otherUserIds = data.map((c: { requester_id: string; helper_id: string }) =>
+            c.requester_id === user.id ? c.helper_id : c.requester_id
+        )
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: usersData } = await (supabase as any)
+            .from('users')
+            .select('id, name, avatar_url')
+            .in('id', otherUserIds)
+
+        // Buscar última mensagem de cada conversa
+        const conversationIds = data.map((c: { id: string }) => c.id)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: messagesData } = await (supabase as any)
+            .from('messages')
+            .select('conversation_id, content, created_at')
+            .in('conversation_id', conversationIds)
+            .order('created_at', { ascending: false })
+
+        // Criar map de última mensagem por conversa
+        const lastMessageMap = new Map<string, string>()
+        messagesData?.forEach((m: { conversation_id: string; content: string }) => {
+            if (!lastMessageMap.has(m.conversation_id)) {
+                lastMessageMap.set(m.conversation_id, m.content)
+            }
+        })
+
+        const usersMap = new Map(usersData?.map((u: { id: string; name: string; avatar_url: string }) => [u.id, u]) || [])
+
+        const conversationsWithUsers = data.map((c: { id: string; requester_id: string; helper_id: string; last_message_at: string }) => {
+            const otherId = c.requester_id === user.id ? c.helper_id : c.requester_id
+            const otherUser = usersMap.get(otherId) as { id: string; name: string; avatar_url: string } | undefined
+            return {
+                id: c.id,
+                other_user: otherUser || { id: otherId, name: 'Usuário', avatar_url: null },
+                last_message: lastMessageMap.get(c.id) || null,
+                last_message_at: c.last_message_at,
+                unread_count: 0
+            }
+        })
+
+        console.log('[Chat] Conversas carregadas:', conversationsWithUsers.length)
+        setConversations(conversationsWithUsers)
         setLoading(false)
     }
 
