@@ -115,33 +115,49 @@ function AvaliarContent() {
         }
 
         // Atualizar rating do usuário avaliado
+        // Buscar dados atuais do usuário
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const ratingField = asRole === 'requester' ? 'rating_as_helper' : 'rating_as_requester'
-        const totalField = asRole === 'requester' ? 'total_helps' : 'total_requests'
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: currentUser } = await (supabase as any)
+        const { data: currentUserData } = await (supabase as any)
             .from('users')
-            .select(`${ratingField}, ${totalField}`)
+            .select('rating_as_helper, rating_as_requester, total_helps, total_requests')
             .eq('id', userToRate.id)
             .single()
 
-        if (currentUser) {
-            const currentRating = currentUser[ratingField] || 0
-            const currentTotal = currentUser[totalField] || 0
-            // Calcular nova média
-            const newRating = currentTotal > 0
-                ? ((currentRating * currentTotal) + rating) / (currentTotal + 1)
-                : rating
+        if (currentUserData) {
+            // Determinar quais campos atualizar baseado no papel
+            if (asRole === 'requester') {
+                // Solicitante avaliando ajudante -> atualizar rating_as_helper
+                const currentRating = currentUserData.rating_as_helper || 0
+                const currentTotal = currentUserData.total_helps || 0
+                const newRating = currentTotal > 0
+                    ? ((currentRating * currentTotal) + rating) / (currentTotal + 1)
+                    : rating
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase as any)
-                .from('users')
-                .update({
-                    [ratingField]: newRating,
-                    [totalField]: currentTotal + 1
-                })
-                .eq('id', userToRate.id)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await (supabase as any)
+                    .from('users')
+                    .update({
+                        rating_as_helper: newRating,
+                        total_helps: currentTotal + 1
+                    })
+                    .eq('id', userToRate.id)
+            } else {
+                // Ajudante avaliando solicitante -> atualizar rating_as_requester
+                const currentRating = currentUserData.rating_as_requester || 0
+                const currentTotal = currentUserData.total_requests || 0
+                const newRating = currentTotal > 0
+                    ? ((currentRating * currentTotal) + rating) / (currentTotal + 1)
+                    : rating
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await (supabase as any)
+                    .from('users')
+                    .update({
+                        rating_as_requester: newRating,
+                        total_requests: currentTotal + 1
+                    })
+                    .eq('id', userToRate.id)
+            }
         }
 
         setSubmitted(true)

@@ -194,11 +194,11 @@ export default function PedidoPage() {
 
         if (!user) return
 
-        // Buscar a oferta para pegar o helper_id
+        // Buscar a oferta para pegar o helper_id e a mensagem
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: offerData } = await (supabase as any)
             .from('offers')
-            .select('helper_id')
+            .select('helper_id, message')
             .eq('id', offerId)
             .single()
 
@@ -227,12 +227,12 @@ export default function PedidoPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase as any)
             .from('requests')
-            .update({ status: 'in_progress' })
+            .update({ status: 'negotiating' })
             .eq('id', params.id)
 
-        // Criar conversa entre o solicitante e o ajudante
+        // Verificar se já existe conversa
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: existingConv } = await (supabase as any)
+        let { data: existingConv } = await (supabase as any)
             .from('conversations')
             .select('id')
             .eq('request_id', params.id)
@@ -240,10 +240,12 @@ export default function PedidoPage() {
             .eq('helper_id', offerData.helper_id)
             .single()
 
+        let conversationId = existingConv?.id
+
         if (!existingConv) {
             // Criar nova conversa
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase as any)
+            const { data: newConv } = await (supabase as any)
                 .from('conversations')
                 .insert({
                     request_id: params.id,
@@ -251,10 +253,33 @@ export default function PedidoPage() {
                     helper_id: offerData.helper_id,
                     last_message_at: new Date().toISOString()
                 })
+                .select('id')
+                .single()
+
+            conversationId = newConv?.id
         }
 
-        loadRequest()
+        // Se a oferta tinha uma mensagem, criar como primeira mensagem da conversa
+        if (conversationId && offerData.message) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase as any)
+                .from('messages')
+                .insert({
+                    conversation_id: conversationId,
+                    sender_id: offerData.helper_id,
+                    content: offerData.message,
+                    read: false
+                })
+        }
+
         setProcessingOffer(null)
+
+        // Redirecionar para o chat
+        if (conversationId) {
+            router.push(`/chat/${conversationId}`)
+        } else {
+            router.push('/chat')
+        }
     }
 
     const handleRejectOffer = async (offerId: string) => {
@@ -280,6 +305,13 @@ export default function PedidoPage() {
             .from('offers')
             .update({ status: 'borrowed', borrowed_at: new Date().toISOString() })
             .eq('id', offerId)
+
+        // Atualizar status do pedido para em andamento
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+            .from('requests')
+            .update({ status: 'in_progress' })
+            .eq('id', params.id)
 
         loadRequest()
         setProcessingOffer(null)
