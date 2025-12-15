@@ -75,7 +75,7 @@ export default function ChatConversationPage() {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
 
-        console.log('[ChatDetail] Loading conversation:', params.id, 'User:', user?.id)
+
 
         if (!user) {
             router.push('/login')
@@ -97,10 +97,10 @@ export default function ChatConversationPage() {
             .eq('id', params.id)
             .single()
 
-        console.log('[ChatDetail] Conversation result:', { convData, convError })
+
 
         if (convError || !convData) {
-            console.error('[ChatDetail] Error loading conversation:', convError)
+
             router.push('/chat')
             return
         }
@@ -115,7 +115,7 @@ export default function ChatConversationPage() {
             .eq('conversation_id', params.id)
             .order('created_at', { ascending: true })
 
-        console.log('[ChatDetail] Messages result:', { msgData, msgError, count: msgData?.length })
+
 
         if (msgData) {
             setMessages(msgData)

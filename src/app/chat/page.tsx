@@ -32,10 +32,7 @@ export default function ChatPage() {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
 
-        console.log('[Chat] User:', user?.id || 'not logged in')
-
         if (!user) {
-            console.log('[Chat] Usuário não está logado')
             setLoading(false)
             return
         }
@@ -55,16 +52,16 @@ export default function ChatPage() {
             .or(`requester_id.eq.${user.id},helper_id.eq.${user.id}`)
             .order('last_message_at', { ascending: false })
 
-        console.log('[Chat] Query result:', { data, error, dataLength: data?.length })
+
 
         if (error) {
-            console.error('[Chat] Erro ao buscar conversas:', error)
+
             setLoading(false)
             return
         }
 
         if (!data || data.length === 0) {
-            console.log('[Chat] Nenhuma conversa encontrada')
+
             setLoading(false)
             return
         }
@@ -111,7 +108,7 @@ export default function ChatPage() {
             }
         })
 
-        console.log('[Chat] Conversas carregadas:', conversationsWithUsers.length)
+
         setConversations(conversationsWithUsers)
         setLoading(false)
     }
