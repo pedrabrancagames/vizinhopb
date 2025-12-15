@@ -190,6 +190,22 @@ export default function PedidoPage() {
     const handleAcceptOffer = async (offerId: string) => {
         setProcessingOffer(offerId)
         const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) return
+
+        // Buscar a oferta para pegar o helper_id
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: offerData } = await (supabase as any)
+            .from('offers')
+            .select('helper_id')
+            .eq('id', offerId)
+            .single()
+
+        if (!offerData) {
+            setProcessingOffer(null)
+            return
+        }
 
         // Aceitar a oferta selecionada
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -213,6 +229,29 @@ export default function PedidoPage() {
             .from('requests')
             .update({ status: 'in_progress' })
             .eq('id', params.id)
+
+        // Criar conversa entre o solicitante e o ajudante
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: existingConv } = await (supabase as any)
+            .from('conversations')
+            .select('id')
+            .eq('request_id', params.id)
+            .eq('requester_id', user.id)
+            .eq('helper_id', offerData.helper_id)
+            .single()
+
+        if (!existingConv) {
+            // Criar nova conversa
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase as any)
+                .from('conversations')
+                .insert({
+                    request_id: params.id,
+                    requester_id: user.id,
+                    helper_id: offerData.helper_id,
+                    last_message_at: new Date().toISOString()
+                })
+        }
 
         loadRequest()
         setProcessingOffer(null)
