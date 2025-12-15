@@ -25,27 +25,12 @@ function AvaliarContent() {
     useEffect(() => {
         if (offerId) {
             loadOfferData()
-        } else {
-            // Fallback quando não há offerId
-            loadOfferData()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [offerId])
 
     const loadOfferData = async () => {
-        // Em produção, buscar dados reais
-        // Por enquanto, usar mock
-        setUserToRate({
-            id: 'user-1',
-            name: asRole === 'requester' ? 'Maria Santos' : 'João Silva',
-            avatar_url: null
-        })
-        setRequestTitle('Furadeira para fazer uns furos')
-    }
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setSubmitting(true)
+        if (!offerId) return
 
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
@@ -55,8 +40,109 @@ function AvaliarContent() {
             return
         }
 
-        // Simular delay
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // Buscar a oferta com os dados do pedido
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: offer, error } = await (supabase as any)
+            .from('offers')
+            .select('id, helper_id, request_id')
+            .eq('id', offerId)
+            .single()
+
+        if (error || !offer) {
+            router.push('/')
+            return
+        }
+
+        // Buscar dados do pedido
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: requestData } = await (supabase as any)
+            .from('requests')
+            .select('title, user_id')
+            .eq('id', offer.request_id)
+            .single()
+
+        if (requestData) {
+            setRequestTitle(requestData.title)
+        }
+
+        // Determinar quem deve ser avaliado
+        const userIdToRate = asRole === 'requester' ? offer.helper_id : requestData?.user_id
+
+        // Buscar dados do usuário a ser avaliado
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: userData } = await (supabase as any)
+            .from('users')
+            .select('id, name, avatar_url')
+            .eq('id', userIdToRate)
+            .single()
+
+        if (userData) {
+            setUserToRate(userData)
+        }
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setSubmitting(true)
+
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user || !offerId || !userToRate) {
+            router.push('/login')
+            return
+        }
+
+        // Salvar avaliação no banco de dados
+        const reviewType = asRole === 'requester' ? 'requester_to_helper' : 'helper_to_requester'
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+            .from('reviews')
+            .insert({
+                offer_id: offerId,
+                reviewer_id: user.id,
+                reviewed_id: userToRate.id,
+                review_type: reviewType,
+                rating: rating,
+                comment: comment || null
+            })
+
+        if (error) {
+            console.error('Erro ao salvar avaliação:', error)
+            setSubmitting(false)
+            return
+        }
+
+        // Atualizar rating do usuário avaliado
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ratingField = asRole === 'requester' ? 'rating_as_helper' : 'rating_as_requester'
+        const totalField = asRole === 'requester' ? 'total_helps' : 'total_requests'
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: currentUser } = await (supabase as any)
+            .from('users')
+            .select(`${ratingField}, ${totalField}`)
+            .eq('id', userToRate.id)
+            .single()
+
+        if (currentUser) {
+            const currentRating = currentUser[ratingField] || 0
+            const currentTotal = currentUser[totalField] || 0
+            // Calcular nova média
+            const newRating = currentTotal > 0
+                ? ((currentRating * currentTotal) + rating) / (currentTotal + 1)
+                : rating
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase as any)
+                .from('users')
+                .update({
+                    [ratingField]: newRating,
+                    [totalField]: currentTotal + 1
+                })
+                .eq('id', userToRate.id)
+        }
 
         setSubmitted(true)
         setSubmitting(false)

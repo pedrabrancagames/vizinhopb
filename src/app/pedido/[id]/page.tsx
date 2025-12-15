@@ -301,8 +301,10 @@ export default function PedidoPage() {
             .update({ status: 'completed', closed_at: new Date().toISOString() })
             .eq('id', params.id)
 
-        loadRequest()
         setProcessingOffer(null)
+
+        // Redirecionar para página de avaliação
+        router.push(`/avaliar?offer=${offerId}&as=requester`)
     }
 
     if (loading) {
