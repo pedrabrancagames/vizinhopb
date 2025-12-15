@@ -41,14 +41,21 @@ export default function ChatPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (supabase as any)
             .from('conversations')
-            .select('*')
-            .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-            .order('updated_at', { ascending: false })
+            .select(`
+                id,
+                request_id,
+                requester_id,
+                helper_id,
+                created_at,
+                last_message_at
+            `)
+            .or(`requester_id.eq.${user.id},helper_id.eq.${user.id}`)
+            .order('last_message_at', { ascending: false })
 
         if (!error && data && data.length > 0) {
             // Buscar informações dos outros usuários
-            const otherUserIds = data.map((c: { user1_id: string; user2_id: string }) =>
-                c.user1_id === user.id ? c.user2_id : c.user1_id
+            const otherUserIds = data.map((c: { requester_id: string; helper_id: string }) =>
+                c.requester_id === user.id ? c.helper_id : c.requester_id
             )
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,16 +64,33 @@ export default function ChatPage() {
                 .select('id, name, avatar_url')
                 .in('id', otherUserIds)
 
+            // Buscar última mensagem de cada conversa
+            const conversationIds = data.map((c: { id: string }) => c.id)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: messagesData } = await (supabase as any)
+                .from('messages')
+                .select('conversation_id, content, created_at')
+                .in('conversation_id', conversationIds)
+                .order('created_at', { ascending: false })
+
+            // Criar map de última mensagem por conversa
+            const lastMessageMap = new Map<string, string>()
+            messagesData?.forEach((m: { conversation_id: string; content: string }) => {
+                if (!lastMessageMap.has(m.conversation_id)) {
+                    lastMessageMap.set(m.conversation_id, m.content)
+                }
+            })
+
             const usersMap = new Map(usersData?.map((u: { id: string; name: string; avatar_url: string }) => [u.id, u]) || [])
 
-            const conversationsWithUsers = data.map((c: { id: string; user1_id: string; user2_id: string; last_message: string; updated_at: string }) => {
-                const otherId = c.user1_id === user.id ? c.user2_id : c.user1_id
+            const conversationsWithUsers = data.map((c: { id: string; requester_id: string; helper_id: string; last_message_at: string }) => {
+                const otherId = c.requester_id === user.id ? c.helper_id : c.requester_id
                 const otherUser = usersMap.get(otherId) as { id: string; name: string; avatar_url: string } | undefined
                 return {
                     id: c.id,
                     other_user: otherUser || { id: otherId, name: 'Usuário', avatar_url: null },
-                    last_message: c.last_message,
-                    last_message_at: c.updated_at,
+                    last_message: lastMessageMap.get(c.id) || null,
+                    last_message_at: c.last_message_at,
                     unread_count: 0
                 }
             })
